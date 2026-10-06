@@ -937,15 +937,3 @@ h1, h2, h3, strong { color: var(--ink); }
 @media (max-width: 360px) {
   .portal-page .step-indicator { gap: 6px; }
 }
-
-.inline-edit-row td { background: #f7fafc; }
-.inline-edit-form { display: grid; grid-template-columns: repeat(3, minmax(130px, 1fr)) minmax(130px, 1fr) auto auto auto; gap: 12px; align-items: end; }
-.inline-edit-form label { display: grid; gap: 6px; color: #58677e; font-size: 11px; font-weight: 750; }
-.inline-edit-form input, .inline-edit-form select { width: 100%; min-height: 38px; padding: 0 12px; color: var(--ink); background: #fff; border: 1px solid #dce4ef; border-radius: 9px; outline: 0; font-size: 13px; }
-.inline-edit-form input:disabled { color: #98a5b7; background: #eef1f5; cursor: not-allowed; }
-.inline-edit-form .inline-edit-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
-.inline-edit-form .form-error { grid-column: 1 / -1; margin: 0; padding: 8px 12px; }
-.icon-button.edit-active { color: var(--accent, #2563eb); background: color-mix(in srgb, var(--accent, #2563eb) 12%, #fff); }
-@media (max-width: 900px) {
-  .inline-edit-form { grid-template-columns: repeat(2, 1fr); }
-}
