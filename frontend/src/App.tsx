@@ -27,6 +27,8 @@ const queryClient = new QueryClient({
   },
 })
 
+const basename = (import.meta.env.VITE_BASE_PATH || '/').replace(/\/+$/, '') || '/'
+
 function ProtectedAdmin() {
   const navigate = useNavigate()
   const [checking, setChecking] = useState(true)
@@ -51,7 +53,7 @@ function ProtectedAdmin() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
+      <BrowserRouter basename={basename}>
         <Suspense fallback={<div className="app-loading"><BrandMark /><span>Loading portal…</span></div>}>
           <Routes>
           <Route path="/" element={<LandingPage />} />

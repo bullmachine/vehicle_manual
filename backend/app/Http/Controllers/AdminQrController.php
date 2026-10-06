@@ -127,7 +127,7 @@ class AdminQrController extends Controller
             'vehicle_number' => [$sometimes, 'nullable', 'string', 'max:80'],
             'chassis_number' => [$sometimes, 'nullable', 'string', 'max:120'],
             'status' => [$partial ? 'sometimes' : 'nullable', 'in:active,inactive'],
-            'expires_at' => [$sometimes, 'nullable', 'date', 'before_or_equal:9999-12-31 23:59:59'],
+            'expires_at' => [$sometimes, 'nullable', 'date', 'after:today', 'before_or_equal:9999-12-31 23:59:59'],
         ];
     }
 

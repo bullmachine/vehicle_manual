@@ -1,0 +1,72 @@
+# BULL vehicle manual portal.
+#
+# This project lives inside the XAMPP htdocs DocumentRoot, so without these
+# rules Apache would serve the application source, .env and .git to anyone
+# who can reach the host. Only the built single-page app and the Laravel
+# front controller are reachable.
+#
+# The public surface is clean:
+#   /vehicle_manual/                    the app
+#   /vehicle_manual/admin/login         admin panel
+#   /vehicle_manual/q/<token>           QR scan landing
+# The "frontend/dist" folder name is an implementation detail and never
+# appears in a public URL. The API is called from fetch() at
+# /vehicle_manual/backend/public/api, which is likewise never shown to a
+# visitor. All rewrites below are internal, so the address bar keeps the
+# clean path.
+
+# No directory listings anywhere inside the project.
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Reject path traversal outright.
+    RewriteRule (^|/)\.\.(/|$) - [F,L]
+
+    # Never serve dotfiles or dot-directories: .git, .env, .env.production,
+    # .htaccess and friends.
+    RewriteRule (^|/)\. - [F,L]
+
+    # The project root is the application entry point.
+    RewriteRule ^/?$ frontend/dist/index.html [L]
+
+    # API: served from the framework's own public root at
+    # /vehicle_manual/backend/public/api/...
+    #
+    # An earlier version tried to alias this to a shorter /vehicle_manual/api/
+    # path with "RewriteRule ^api(/.*)?$ backend/public/api$1". That does not
+    # work: Apache does not consult a nested .htaccess after a rewrite that
+    # originates in a parent directory, so backend/public/.htaccess never ran
+    # and the request 404'd. There is no alias-style fix for this inside
+    # .htaccess, because Alias is a server-config-only directive.
+    #
+    # This path is never visible to a visitor. The API is only ever called via
+    # fetch() from the single-page app, and fetch() calls do not appear in the
+    # address bar. It is configured from frontend/.env.production as
+    # VITE_API_URL and can be changed without touching this file.
+    RewriteRule ^backend/public(/.*)?$ - [L]
+
+    # Real files from the build output (assets, runtime-config.js, favicon).
+    RewriteCond %{DOCUMENT_ROOT}/vehicle_manual/frontend/dist/$1 -f
+    RewriteRule ^(.+)$ frontend/dist/$1 [L]
+
+    # A path that names a real file or directory inside the project is someone
+    # probing for source, not an application route. Refuse it outright instead
+    # of answering with the SPA shell.
+    RewriteCond %{DOCUMENT_ROOT}/vehicle_manual/$1 -f
+    RewriteRule ^(.+)$ - [F,L]
+    RewriteCond %{DOCUMENT_ROOT}/vehicle_manual/$1 -d
+    RewriteRule ^(.+)$ - [F,L]
+
+    # Anything left is a client-side route: serve the entry point. Kept here
+    # rather than in frontend/dist/.htaccess so routing does not depend on a
+    # parent rewrite re-entering a nested directory context.
+    RewriteRule ^.*$ frontend/dist/index.html [L]
+</IfModule>
+
+<IfModule !mod_rewrite.c>
+    # Without mod_rewrite the allowlist cannot be enforced, so serve nothing
+    # rather than leaking the project.
+    Require all denied
+</IfModule>
