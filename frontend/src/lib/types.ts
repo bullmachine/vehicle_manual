@@ -75,12 +75,17 @@ export type AdminManualDetail = {
   id: number
   title: string
   status: string
+  manual_type_id?: number | null
+  vehicle_variant_id?: number | null
+  engine_id?: number | null
+  language_id?: number | null
   vehicle_variant?: { name: string } | null
   engine?: { name: string } | null
   language?: { name: string } | null
   manual_type?: { name: string } | null
   updated_at?: string | null
   versions: AdminManualVersion[]
+  qr_types?: { id: number; name: string }[]
 }
 
 export type AdminUser = {
