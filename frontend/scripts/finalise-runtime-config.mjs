@@ -1,4 +1,4 @@
-import { existsSync, writeFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { loadEnv } from 'vite'
 
@@ -21,3 +21,34 @@ if (mode === 'production' && !apiUrl && process.env.ALLOW_SAME_ORIGIN_API !== '1
 
 writeFileSync(target, contents)
 console.log(`runtime-config.js written with apiUrl=${apiUrl || '(same origin)'}`)
+
+// pdf.js ships its web worker as pdf.worker.min.mjs. Apache on the LAN serves
+// .mjs fine, but IIS (the public host) has no MIME type for it and the
+// staticContent section that declares extra types is locked, so the worker
+// answers 404 and the viewer never starts. Rename emitted .mjs assets to .js,
+// a type both servers already serve, and point every referring file at the new
+// name. The rename is exact-basename, so no unrelated strings are touched.
+const assetsDir = resolve(process.cwd(), 'dist', 'assets')
+if (existsSync(assetsDir)) {
+  const renamedMap = new Map()
+  for (const name of readdirSync(assetsDir)) {
+    if (!name.endsWith('.mjs')) continue
+    const next = name.slice(0, -4) + '.js'
+    renameSync(resolve(assetsDir, name), resolve(assetsDir, next))
+    renamedMap.set(name, next)
+    console.log(`worker asset renamed ${name} -> ${next}`)
+  }
+  if (renamedMap.size > 0) {
+    const targets = [
+      ...readdirSync(assetsDir).map((name) => resolve(assetsDir, name)),
+      resolve(process.cwd(), 'dist', 'index.html'),
+    ]
+    for (const file of targets) {
+      if (!/\.(js|html)$/.test(file)) continue
+      const before = readFileSync(file, 'utf8')
+      let after = before
+      for (const [from, to] of renamedMap) after = after.split(from).join(to)
+      if (after !== before) writeFileSync(file, after)
+    }
+  }
+}

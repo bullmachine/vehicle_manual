@@ -30,8 +30,9 @@ Route::prefix('public')->group(function () {
 Route::prefix('customer')->middleware('customer.session')->group(function () {
     Route::get('session', [CustomerPortalController::class, 'session']);
     Route::get('manuals', [CustomerPortalController::class, 'manuals']);
-    Route::get('manuals/{manualId}', [CustomerPortalController::class, 'manual']);
-    Route::get('manuals/{manualId}/pages/{page}', [CustomerPortalController::class, 'page']);
+Route::get('manuals/{manualId}', [CustomerPortalController::class, 'manual']);
+Route::get('manuals/{manualId}/file', [CustomerPortalController::class, 'file']);
+Route::get('manuals/{manualId}/pages/{page}', [CustomerPortalController::class, 'page']);
     Route::get('manuals/{manualId}/search', [CustomerPortalController::class, 'search']);
     Route::post('manuals/{manualId}/feedback', [CustomerPortalController::class, 'feedback']);
 });

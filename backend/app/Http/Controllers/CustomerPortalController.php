@@ -8,6 +8,7 @@ use App\Services\PortalService;
 use App\Models\ManualFeedback;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class CustomerPortalController extends Controller
 {
@@ -57,6 +58,21 @@ class CustomerPortalController extends Controller
         ]);
 
         return $this->renderer->render($version, $page, $watermark);
+    }
+
+    public function file(Request $request, int $manualId, ?int $versionId = null)
+    {
+        $session = $request->attributes->get('customer_session');
+        $versionId = $versionId ?: $request->integer('version_id') ?: null;
+        [$manual, $version] = $this->portal->authorizeManual($session, $manualId, $versionId);
+        $this->access->record($session, $manual, $version, 'view', $request);
+
+        return Storage::disk($version->file_disk)->response($version->file_path, null, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline',
+            'Cache-Control' => 'private, no-store, max-age=0',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
     }
 
     public function feedback(Request $request, int $manualId): JsonResponse
