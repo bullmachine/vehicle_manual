@@ -69,6 +69,19 @@ class AdminMasterController extends Controller
         return response()->json(['data' => $record->fresh($this->relations($resource))]);
     }
 
+    /**
+     * Resources whose rows are guarded by restrictOnDelete foreign keys and
+     * therefore fall back to being hidden (status=inactive) when something
+     * still references them instead of failing with a foreign-key error.
+     */
+    private const ARCHIVABLE_RESOURCES = [
+        'vehicles',
+        'engines',
+        'languages',
+        'manual-types',
+        'qr-types',
+    ];
+
     public function destroy(int|string $id, string $resource): JsonResponse
     {
         $model = $this->model($resource);
@@ -77,7 +90,14 @@ class AdminMasterController extends Controller
         try {
             $record->delete();
         } catch (\Throwable $exception) {
-            throw ValidationException::withMessages(['record' => 'This master is in use and cannot be deleted.']);
+            if (! in_array($resource, self::ARCHIVABLE_RESOURCES, true)) {
+                throw ValidationException::withMessages(['record' => 'This master is in use and cannot be deleted.']);
+            }
+
+            $record->update(['status' => 'inactive']);
+            $this->audit->record('updated', $resource, class_basename($model), $record->id, $old, $record->getAttributes());
+
+            return response()->json(['message' => 'Deleted.']);
         }
         $this->audit->record('deleted', $resource, class_basename($model), $id, $old, []);
 
