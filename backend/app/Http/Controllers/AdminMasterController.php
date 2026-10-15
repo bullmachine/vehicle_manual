@@ -69,19 +69,6 @@ class AdminMasterController extends Controller
         return response()->json(['data' => $record->fresh($this->relations($resource))]);
     }
 
-    /**
-     * Resources whose rows are guarded by restrictOnDelete foreign keys and
-     * therefore fall back to being hidden (status=inactive) when something
-     * still references them instead of failing with a foreign-key error.
-     */
-    private const ARCHIVABLE_RESOURCES = [
-        'vehicles',
-        'engines',
-        'languages',
-        'manual-types',
-        'qr-types',
-    ];
-
     public function destroy(int|string $id, string $resource): JsonResponse
     {
         $model = $this->model($resource);
