@@ -1,0 +1,37 @@
+[
+    {
+        "INVOICE": "90000072",
+        "FERT": "8000001",
+        "DESCRIPTION": "Bull Smart Backhoe Loader",
+        "PLANT": "1500",
+        "MSNO": "BS255"
+    },
+    {
+        "INVOICE": "90000073",
+        "FERT": "8000001",
+        "DESCRIPTION": "Bull Smart Backhoe Loader",
+        "PLANT": "1500",
+        "MSNO": "BS256"
+    },
+    {
+        "INVOICE": "90000074",
+        "FERT": "8000002",
+        "DESCRIPTION": "Bull Backhoe Loader HD",
+        "PLANT": "1500",
+        "MSNO": "BH101"
+    },
+    {
+        "INVOICE": "90000075",
+        "FERT": "8000003",
+        "DESCRIPTION": "Bull Skid Steer Loader",
+        "PLANT": "1600",
+        "MSNO": "SS501"
+    },
+    {
+        "INVOICE": "90000076",
+        "FERT": "8000004",
+        "DESCRIPTION": "Bull Compact Wheel Loader",
+        "PLANT": "1600",
+        "MSNO": "WL700"
+    }
+]

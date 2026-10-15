@@ -2,7 +2,7 @@
 
 namespace Database\Seeders;
 
-use App\Models\Engine;
+use App\Models\Fert;
 use App\Models\Language;
 use App\Models\Manual;
 use App\Models\ManualType;
@@ -12,8 +12,7 @@ use App\Models\QrType;
 use App\Models\Role;
 use App\Models\Setting;
 use App\Models\User;
-use App\Models\VehicleEngineMapping;
-use App\Models\VehicleVariant;
+use App\Services\MachineSync;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Storage;
@@ -43,7 +42,8 @@ class DatabaseSeeder extends Seeder
         $adminRole->permissions()->sync($permissions->whereIn('slug', ['dashboard.view', 'masters.manage', 'manuals.manage', 'qr.manage', 'reports.view', 'enquiries.view', 'enquiries.manage'])->pluck('id'));
         $viewerRole->permissions()->sync($permissions->whereIn('slug', ['dashboard.view', 'reports.view', 'enquiries.view'])->pluck('id'));
 
-        $admin = User::updateOrCreate(
+        // Created once; re-seeding must never reset the password or role of an existing admin.
+        $admin = User::firstOrCreate(
             ['email' => env('ADMIN_EMAIL', 'admin@example.com')],
             [
                 'name' => env('ADMIN_NAME', 'BULL Administrator'),
@@ -54,44 +54,6 @@ class DatabaseSeeder extends Seeder
                 'email_verified_at' => now(),
             ]
         );
-
-        $vehicles = collect([
-            ['code' => 'TRACTOR-45', 'name' => 'Tractor 45 HP', 'display_order' => 1],
-            ['code' => 'TRACTOR-50', 'name' => 'Tractor 50 HP', 'display_order' => 2],
-            ['code' => 'TRACTOR-55', 'name' => 'Tractor 55 HP', 'display_order' => 3],
-            ['code' => 'TRACTOR-60', 'name' => 'Tractor 60 HP', 'display_order' => 4],
-            ['code' => 'BACKHOE', 'name' => 'Backhoe Loader', 'display_order' => 5],
-            ['code' => 'MINI', 'name' => 'Mini Tractor', 'display_order' => 6],
-        ])->mapWithKeys(fn ($data) => [$data['code'] => VehicleVariant::updateOrCreate(['code' => $data['code']], $data + ['status' => 'active'])]);
-        $engines = collect([
-            ['code' => 'DIESEL-A', 'name' => 'Diesel A'],
-            ['code' => 'DIESEL-B', 'name' => 'Diesel B'],
-            ['code' => 'DIESEL-C', 'name' => 'Diesel C'],
-            ['code' => 'PETROL-A', 'name' => 'Petrol A'],
-            ['code' => 'ELECTRIC', 'name' => 'Electric'],
-        ])->mapWithKeys(fn ($data) => [$data['code'] => Engine::updateOrCreate(['code' => $data['code']], $data + ['status' => 'active'])]);
-        foreach ($engines as $engine) {
-            VehicleEngineMapping::updateOrCreate(['vehicle_variant_id' => $vehicles['TRACTOR-50']->id, 'engine_id' => $engine->id]);
-        }
-        VehicleEngineMapping::updateOrCreate(['vehicle_variant_id' => $vehicles['TRACTOR-60']->id, 'engine_id' => $engines['DIESEL-C']->id]);
-
-        $variantEngineCodes = [
-            'TRACTOR-45' => ['DIESEL-A', 'DIESEL-B'],
-            'TRACTOR-50' => ['DIESEL-A', 'DIESEL-B', 'DIESEL-C', 'PETROL-A', 'ELECTRIC'],
-            'TRACTOR-55' => ['DIESEL-B', 'DIESEL-C'],
-            'TRACTOR-60' => ['DIESEL-C', 'PETROL-A'],
-            'BACKHOE' => ['DIESEL-A', 'DIESEL-C'],
-            'MINI' => ['PETROL-A', 'ELECTRIC'],
-        ];
-
-        foreach ($variantEngineCodes as $variantCode => $engineCodes) {
-            foreach ($engineCodes as $engineCode) {
-                VehicleEngineMapping::updateOrCreate([
-                    'vehicle_variant_id' => $vehicles[$variantCode]->id,
-                    'engine_id' => $engines[$engineCode]->id,
-                ]);
-            }
-        }
 
         $languages = collect([
             ['code' => 'en', 'name' => 'English', 'native_name' => 'English', 'display_order' => 1],
@@ -110,90 +72,71 @@ class DatabaseSeeder extends Seeder
             ['code' => 'export-non-bull', 'name' => 'Export (Non-BULL)', 'display_order' => 3],
         ])->mapWithKeys(fn ($data) => [$data['code'] => QrType::updateOrCreate(['code' => $data['code']], $data + ['status' => 'active'])]);
 
-        $allQrTypeIds = $qrTypes->pluck('id')->all();
-
-        foreach ($vehicles as $vehicle) {
-            $vehicle->qrTypes()->sync($allQrTypeIds);
-        }
-
-        $pdf = $this->samplePdf('BULL Tractor 50 HP Operator Manual');
-        $englishPath = 'manuals/sample-tractor50-en-v3.pdf';
-        $tamilPath = 'manuals/sample-tractor50-ta-v3.pdf';
-        Storage::disk('local')->put($englishPath, $pdf);
-        Storage::disk('local')->put($tamilPath, $pdf);
-
-        $primaryEngine = [
-            'TRACTOR-45' => 'DIESEL-A',
-            'TRACTOR-50' => 'DIESEL-A',
-            'TRACTOR-55' => 'DIESEL-B',
-            'TRACTOR-60' => 'DIESEL-C',
-            'BACKHOE' => 'DIESEL-A',
-            'MINI' => 'PETROL-A',
-        ];
-
-        $manuals = [];
-        foreach ($variantEngineCodes as $variantCode => $engineCodes) {
-            foreach (['en', 'ta'] as $languageCode) {
-                $manuals[] = [
-                    'language' => $languages[$languageCode],
-                    'path' => $languageCode === 'en' ? $englishPath : $tamilPath,
-                    'title' => $vehicles[$variantCode]->name.' Operator Manual',
-                    'variant' => $variantCode,
-                    'engine' => $primaryEngine[$variantCode] ?? $engineCodes[0],
-                ];
-            }
-        }
-
-        foreach ($manuals as $item) {
-            $manual = Manual::updateOrCreate([
-                'title' => $item['title'],
-                'manual_type_id' => $manualType->id,
-                'vehicle_variant_id' => $vehicles[$item['variant']]->id,
-                'engine_id' => $engines[$item['engine']]->id,
-                'language_id' => $item['language']->id,
-            ], ['status' => 'published', 'show_old_versions' => true, 'created_by' => $admin->id]);
-            $manual->qrTypes()->sync($allQrTypeIds);
-            $manual->versions()->updateOrCreate(['version' => '3.0'], [
-                'effective_date' => now()->toDateString(),
-                'description' => 'Development fixture manual',
-                'file_disk' => 'local',
-                'file_path' => $item['path'],
-                'original_name' => basename($item['path']),
-                'mime_type' => 'application/pdf',
-                'file_size' => strlen($pdf),
-                'checksum' => hash('sha256', $pdf),
-                'page_count' => 1,
-                'status' => 'published',
-                'published_at' => now(),
-                'created_by' => $admin->id,
-            ]);
-        }
-
-        $token = Str::random(64);
-        QrCode::updateOrCreate(['reference' => 'QR-'.now()->format('Y').'-000001'], [
-            'token_hash' => hash('sha256', $token),
-            'token_ciphertext' => Crypt::encryptString($token),
-            'qr_type_id' => $qrTypes['domestic']->id,
-            'vehicle_variant_id' => null,
-            'engine_id' => null,
-            'language_id' => null,
-            'label' => 'Demo Domestic access label',
-            'vehicle_number' => 'DEMO-50-001',
-            'chassis_number' => 'DEMOCHASSIS50',
-            'status' => 'active',
-            'created_by' => $admin->id,
-        ]);
-
         foreach ([
-            'otp_enabled' => ['1', 'boolean'],
-            'otp_length' => ['6', 'integer'],
-            'otp_expiry_minutes' => ['5', 'integer'],
-            'otp_max_attempts' => ['5', 'integer'],
-            'otp_resend_cooldown' => ['30', 'integer'],
             'manual_max_file_size' => [(string) config('portal.manual_max_file_size'), 'integer'],
             'support_contact' => ['support@example.com', 'string'],
         ] as $key => [$value, $type]) {
-            Setting::updateOrCreate(['key' => $key], ['value' => $value, 'type' => $type, 'updated_by' => $admin->id]);
+            // Keep values an admin has already changed.
+            Setting::firstOrCreate(['key' => $key], ['value' => $value, 'type' => $type, 'updated_by' => $admin->id]);
+        }
+
+        // Dummy machines, sample manuals and a demo QR code are for development and tests only.
+        if (app()->environment(['local', 'testing'])) {
+            $this->seedDemoData($admin, $languages, $manualType, $qrTypes['domestic']);
+        }
+    }
+
+    private function seedDemoData(User $admin, $languages, ManualType $manualType, QrType $qrType): void
+    {
+        // Load the dummy machines (database/data/machines.json, SAP response format); this also fills the FERT master.
+        app(MachineSync::class)->syncFromFile((string) config('portal.machine_data_path'));
+
+        // Sample manuals for the first three FERTs; the rest show "no manuals yet" until an admin maps one.
+        $ferts = Fert::query()->whereIn('code', ['8000001', '8000002', '8000003'])->orderBy('code')->get();
+
+        $pdf = $this->samplePdf('BULL Smart Backhoe Loader Operator Manual');
+        $paths = ['en' => 'manuals/sample-backhoe-en-v1.pdf', 'ta' => 'manuals/sample-backhoe-ta-v1.pdf'];
+        foreach ($paths as $path) {
+            Storage::disk('local')->put($path, $pdf);
+        }
+
+        foreach ($ferts as $fert) {
+            foreach ($paths as $languageCode => $path) {
+                $manual = Manual::updateOrCreate([
+                    'title' => $fert->name.' Operator Manual',
+                    'manual_type_id' => $manualType->id,
+                    'language_id' => $languages[$languageCode]->id,
+                ], ['status' => 'published', 'show_old_versions' => true, 'created_by' => $admin->id]);
+                $manual->ferts()->sync([$fert->id]);
+                $manual->versions()->updateOrCreate(['version' => '1.0'], [
+                    'effective_date' => now()->toDateString(),
+                    'description' => 'Development fixture manual',
+                    'file_disk' => 'local',
+                    'file_path' => $path,
+                    'original_name' => basename($path),
+                    'mime_type' => 'application/pdf',
+                    'file_size' => strlen($pdf),
+                    'checksum' => hash('sha256', $pdf),
+                    'page_count' => 1,
+                    'status' => 'published',
+                    'published_at' => now(),
+                    'created_by' => $admin->id,
+                ]);
+            }
+        }
+
+        // Keep the existing token on re-seed so a demo QR link that was already shared keeps working.
+        if (! QrCode::query()->exists()) {
+            $token = Str::random(64);
+            QrCode::create([
+                'reference' => 'QR-'.now()->format('Y').'-000001',
+                'token_hash' => hash('sha256', $token),
+                'token_ciphertext' => Crypt::encryptString($token),
+                'qr_type_id' => $qrType->id,
+                'label' => 'Demo Domestic access label',
+                'status' => 'active',
+                'created_by' => $admin->id,
+            ]);
         }
     }
 

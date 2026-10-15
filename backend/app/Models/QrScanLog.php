@@ -13,8 +13,8 @@ class QrScanLog extends Model
     protected $fillable = [
         'qr_code_id',
         'customer_session_id',
-        'vehicle_variant_id',
-        'engine_id',
+        'fert_id',
+        'machine_serial_no',
         'language_id',
         'ip_address',
         'user_agent',
@@ -26,14 +26,14 @@ class QrScanLog extends Model
         return $this->belongsTo(QrCode::class);
     }
 
-    public function vehicleVariant(): BelongsTo
+    public function session(): BelongsTo
     {
-        return $this->belongsTo(VehicleVariant::class);
+        return $this->belongsTo(CustomerSession::class, 'customer_session_id');
     }
 
-    public function engine(): BelongsTo
+    public function fert(): BelongsTo
     {
-        return $this->belongsTo(Engine::class);
+        return $this->belongsTo(Fert::class);
     }
 
     public function language(): BelongsTo

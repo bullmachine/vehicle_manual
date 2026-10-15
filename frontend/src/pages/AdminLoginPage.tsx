@@ -22,8 +22,9 @@ export function AdminLoginPage() {
     setLoading(true)
     setError('')
     try {
-      const result = await apiFetch<{ token?: string; user: AdminUser; two_factor_required?: boolean }>('/admin/login', jsonBody({ login, password, otp: otp || undefined }))
+      const result = await apiFetch<{ token?: string; user: AdminUser; two_factor_required?: boolean; message?: string }>('/admin/login', jsonBody({ login, password, otp: otp || undefined }))
       if (result.two_factor_required) {
+        if (otp) setError(result.message ?? 'The two-factor code is incorrect.')
         setTwoFactor(true)
         return
       }

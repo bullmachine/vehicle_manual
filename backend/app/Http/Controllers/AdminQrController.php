@@ -19,7 +19,7 @@ class AdminQrController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $query = QrCode::query()->with(['type', 'vehicleVariant', 'engine', 'language']);
+        $query = QrCode::query()->with('type');
         if ($request->filled('q')) {
             $query->where(function ($builder) use ($request) {
                 $term = $request->input('q');
@@ -32,7 +32,7 @@ class AdminQrController extends Controller
             }
         }
         $query->orderByDesc('created_at');
-        $paginator = $query->paginate((int) $request->input('per_page', 25));
+        $paginator = $query->paginate($this->perPage($request, 25));
         $paginator->getCollection()->each(fn (QrCode $record) => $this->decorate($record));
 
         return response()->json($paginator);
@@ -62,7 +62,7 @@ class AdminQrController extends Controller
 
     public function show(int $id): JsonResponse
     {
-        $record = QrCode::query()->with(['type', 'vehicleVariant', 'engine', 'language'])->findOrFail($id);
+        $record = QrCode::query()->with('type')->findOrFail($id);
         $this->decorate($record);
 
         return response()->json(['data' => $record]);
@@ -77,7 +77,7 @@ class AdminQrController extends Controller
         $this->audit->record('updated', 'qr_codes', QrCode::class, $record->id, $old, $validated);
         $this->decorate($record);
 
-        return response()->json(['data' => $record->fresh(['type', 'vehicleVariant', 'engine', 'language'])]);
+        return response()->json(['data' => $record->fresh('type')]);
     }
 
     public function activate(int $id): JsonResponse
@@ -102,7 +102,7 @@ class AdminQrController extends Controller
         $this->audit->record('regenerated', 'qr_codes', QrCode::class, $record->id, ['token_version' => $record->token_version - 1], ['token_version' => $record->token_version]);
         $this->decorate($record);
 
-        return response()->json(['data' => $record->fresh(['type', 'vehicleVariant', 'engine', 'language'])]);
+        return response()->json(['data' => $record->fresh('type')]);
     }
 
     private function setStatus(int $id, string $status, string $action): JsonResponse
@@ -113,7 +113,7 @@ class AdminQrController extends Controller
         $this->audit->record($action, 'qr_codes', QrCode::class, $record->id, ['status' => $old], ['status' => $status]);
         $this->decorate($record);
 
-        return response()->json(['data' => $record->fresh(['type', 'vehicleVariant', 'engine', 'language'])]);
+        return response()->json(['data' => $record->fresh('type')]);
     }
 
     private function rules(?int $ignore = null, bool $partial = false): array
@@ -143,6 +143,5 @@ class AdminQrController extends Controller
     {
         $record->setAttribute('qr_url', $this->portal->qrUrl($record));
         $record->setAttribute('qr_payload', $this->portal->qrUrl($record));
-        $record->setAttribute('vehicle_variant_count', $record->qr_type_id ? count($this->portal->vehicleOptionsForType($record->qr_type_id)) : 0);
     }
 }

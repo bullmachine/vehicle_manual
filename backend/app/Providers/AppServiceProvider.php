@@ -2,15 +2,16 @@
 
 namespace App\Providers;
 
-use App\Services\FakeSmsProvider;
-use App\Services\SmsProvider;
+use App\Services\DatabaseMachineLookup;
+use App\Services\MachineLookup;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        $this->app->bind(SmsProvider::class, FakeSmsProvider::class);
+        // Machines are synced into the local table from SAP (php artisan machines:sync); lookups read that table.
+        $this->app->bind(MachineLookup::class, DatabaseMachineLookup::class);
     }
 
     public function boot(): void

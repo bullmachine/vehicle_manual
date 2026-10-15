@@ -23,6 +23,6 @@ class AdminAuditController extends Controller
         }
         $query->latest('created_at');
 
-        return response()->json($query->paginate((int) $request->input('per_page', 30)));
+        return response()->json($query->paginate($this->perPage($request, 30)));
     }
 }

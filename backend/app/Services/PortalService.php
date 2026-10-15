@@ -4,33 +4,32 @@ namespace App\Services;
 
 use App\Models\Customer;
 use App\Models\CustomerSession;
-use App\Models\Engine;
+use App\Models\Fert;
 use App\Models\Language;
+use App\Models\Machine;
 use App\Models\Manual;
 use App\Models\QrCode;
 use App\Models\QrScanLog;
-use App\Models\VehicleEngineMapping;
-use App\Models\VehicleVariant;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class PortalService
 {
+    public function __construct(private readonly MachineLookup $machines, private readonly FertMaster $ferts)
+    {
+    }
+
     public function findQr(string $token): QrCode
     {
         $qr = QrCode::query()
-            ->with(['type', 'vehicleVariant', 'engine', 'language'])
+            ->with('type')
             ->where('token_hash', hash('sha256', $token))
             ->first();
 
-        if (! $qr) {
-            throw ValidationException::withMessages(['qr' => 'This QR code is invalid or has been deactivated.']);
-        }
-
-        if ($qr->status !== 'active' || ($qr->expires_at && $qr->expires_at->isPast())) {
+        if (! $qr || $qr->status !== 'active' || ($qr->expires_at && $qr->expires_at->isPast())) {
             throw ValidationException::withMessages(['qr' => 'This QR code is invalid or has been deactivated.']);
         }
 
@@ -39,168 +38,133 @@ class PortalService
 
     public function context(QrCode $qr): array
     {
-        $vehicle = $qr->vehicleVariant;
-        $engine = $qr->engine;
-        $language = $qr->language;
-
-        $vehicleOptions = $vehicle
-            ? [$vehicle->only(['id', 'code', 'name'])]
-            : $this->vehicleOptionsForType($qr->qr_type_id);
-
-        $engineOptions = $engine
-            ? [$engine->only(['id', 'code', 'name'])]
-            : Engine::query()
-                ->active()
-                ->whereHas('mappings', fn ($query) => $query->whereIn('vehicle_variant_id', $this->variantIdsForType($qr->qr_type_id)))
-                ->orderBy('name')
-                ->get(['id', 'code', 'name'])
-                ->all();
-
-        $languageOptions = $language
-            ? [$language->only(['id', 'code', 'name', 'native_name'])]
-            : Language::query()->active()->orderBy('display_order')->orderBy('name')->get(['id', 'code', 'name', 'native_name'])->all();
-
         return [
             'qr' => [
                 'reference' => $qr->reference,
                 'type' => $qr->type?->only(['id', 'code', 'name']),
                 'label' => $qr->label,
             ],
-            'selection' => [
-                'vehicle_variant_id' => $vehicle?->id,
-                'vehicle_variant' => $vehicle?->only(['id', 'code', 'name']),
-                'engine_id' => $engine?->id,
-                'engine' => $engine?->only(['id', 'code', 'name']),
-                'language_id' => $language?->id,
-                'language' => $language?->only(['id', 'code', 'name', 'native_name']),
-                'vehicle_required' => ! $vehicle,
-                'engine_required' => ! $engine,
-                'language_required' => ! $language,
-            ],
-            'options' => [
-                'vehicle_variants' => $vehicleOptions,
-                'engines' => $engineOptions,
-                'languages' => $languageOptions,
-            ],
+            'languages' => Language::query()->active()->orderBy('display_order')->orderBy('name')->get(['id', 'code', 'name', 'native_name'])->all(),
         ];
     }
 
-    public function vehicleOptionsForType(?int $qrTypeId): array
+    public function normalizeSerialNo(string $serialNo): string
     {
-        $base = VehicleVariant::query()->active()->orderBy('display_order')->orderBy('name');
-
-        if ($qrTypeId) {
-            $base->whereHas('qrTypes', fn ($query) => $query->where('qr_types.id', $qrTypeId));
-        }
-
-        $variants = $base->get(['id', 'code', 'name']);
-
-        if ($variants->isEmpty() && $qrTypeId) {
-            $variants = VehicleVariant::query()->active()->orderBy('display_order')->orderBy('name')->get(['id', 'code', 'name']);
-        }
-
-        return $variants->all();
+        return Machine::normalizeSerialNo($serialNo);
     }
 
-    private function variantIdsForType(?int $qrTypeId): array
+    /**
+     * Resolve a machine serial number to its machine record and FERT master.
+     *
+     * @return array{machine: array, fert: Fert}
+     */
+    public function lookupMachine(string $serialNo): array
     {
-        return array_map(fn ($variant) => $variant['id'], $this->vehicleOptionsForType($qrTypeId));
-    }
+        $machine = $this->machines->find($this->normalizeSerialNo($serialNo));
 
-    public function resolveSelection(QrCode $qr, array $input): array
-    {
-        $vehicleId = $qr->vehicle_variant_id ?: ($input['vehicle_variant_id'] ?? null);
-        $engineId = $qr->engine_id ?: ($input['engine_id'] ?? null);
-        $languageId = $qr->language_id ?: ($input['language_id'] ?? null);
-
-        if (! $vehicleId || ! $engineId || ! $languageId) {
-            throw ValidationException::withMessages(['selection' => 'Select the missing vehicle information.']);
+        if (! $machine) {
+            throw ValidationException::withMessages(['machine_serial_no' => 'We could not find a machine with that serial number. Check the number on your machine plate and try again.']);
         }
 
-        $vehicle = VehicleVariant::query()->active()->find($vehicleId);
-        $engine = Engine::query()->active()->find($engineId);
+        // New FERTs from machine data join the master automatically; admins then map manuals to them.
+        $fert = filled($machine['fert']) ? $this->ferts->ensure($machine['fert'], $machine['description']) : null;
+
+        if (! $fert || $fert->status !== 'active') {
+            throw ValidationException::withMessages(['machine_serial_no' => 'Manuals for this machine are not available yet. Please contact support.']);
+        }
+
+        return ['machine' => $machine, 'fert' => $fert];
+    }
+
+    /**
+     * Active languages that have at least one published manual for the FERT.
+     */
+    public function languagesForFert(Fert $fert): array
+    {
+        return Language::query()
+            ->active()
+            ->whereHas('manuals', fn (Builder $query) => $this->availableManuals($query, $fert->id))
+            ->orderBy('display_order')
+            ->orderBy('name')
+            ->get(['id', 'code', 'name', 'native_name'])
+            ->all();
+    }
+
+    public function machineData(array $machine, Fert $fert): array
+    {
+        return [
+            'serial_no' => $machine['msno'],
+            'description' => $machine['description'] ?: $fert->name,
+            'fert' => $fert->only(['id', 'code', 'name']),
+        ];
+    }
+
+    public function resolveLanguage(int $languageId): Language
+    {
         $language = Language::query()->active()->find($languageId);
 
-        if (! $vehicle || ! $engine || ! $language) {
-            throw ValidationException::withMessages(['selection' => 'One or more selected options are no longer available.']);
+        if (! $language) {
+            throw ValidationException::withMessages(['language_id' => 'That language is no longer available.']);
         }
 
-        if (! $qr->vehicle_variant_id) {
-            $allowed = array_column($this->vehicleOptionsForType($qr->qr_type_id), 'id');
-
-            if (! in_array($vehicle->id, $allowed, true)) {
-                throw ValidationException::withMessages(['vehicle_variant_id' => 'That vehicle variant is not available for this QR type.']);
-            }
-        }
-
-        $mapped = VehicleEngineMapping::query()
-            ->where('vehicle_variant_id', $vehicle->id)
-            ->where('engine_id', $engine->id)
-            ->exists();
-
-        if (! $mapped) {
-            throw ValidationException::withMessages(['engine_id' => 'That engine is not available for the selected vehicle.']);
-        }
-
-        return [
-            'vehicle_variant_id' => $vehicle->id,
-            'engine_id' => $engine->id,
-            'language_id' => $language->id,
-            'vehicle' => $vehicle,
-            'engine' => $engine,
-            'language' => $language,
-        ];
+        return $language;
     }
 
-    public function createSession(QrCode $qr, array $selection, string $name, string $mobile, Request $request): array
+    public function createSession(QrCode $qr, array $machine, Fert $fert, Language $language, string $name, ?string $mobile, Request $request): array
     {
-        $customer = Customer::query()->updateOrCreate(
-            ['mobile' => $mobile],
-            ['name' => $name, 'last_accessed_at' => now()]
-        );
+        $customer = $mobile
+            ? Customer::query()->updateOrCreate(['mobile' => $mobile], ['name' => $name, 'last_accessed_at' => now()])
+            : Customer::query()->create(['name' => $name, 'mobile' => null, 'last_accessed_at' => now()]);
 
         $token = Str::random(96);
         $session = CustomerSession::create([
             'session_token_hash' => hash('sha256', $token),
             'customer_id' => $customer->id,
             'qr_code_id' => $qr->id,
-            'vehicle_variant_id' => $selection['vehicle_variant_id'],
-            'engine_id' => $selection['engine_id'],
-            'language_id' => $selection['language_id'],
+            'fert_id' => $fert->id,
+            'machine_serial_no' => $machine['msno'],
+            'language_id' => $language->id,
             'expires_at' => now()->addMinutes((int) config('portal.customer_session_minutes', 120)),
             'last_seen_at' => now(),
             'ip_address' => $request->ip(),
             'user_agent' => $request->userAgent(),
         ]);
+        $this->linkScan($qr, $session, $request);
 
-        return ['token' => $token, 'session' => $session->load(['customer', 'vehicleVariant', 'engine', 'language'])];
+        return ['token' => $token, 'session' => $session->load(['customer', 'fert', 'language'])];
+    }
+
+    public function sessionData(CustomerSession $session): array
+    {
+        return [
+            'id' => $session->id,
+            'customer' => $session->customer->only(['id', 'name', 'mobile']),
+            'machine' => [
+                'serial_no' => $session->machine_serial_no,
+                'fert' => $session->fert?->only(['id', 'code', 'name']),
+            ],
+            'language' => $session->language->only(['id', 'name']),
+            'expires_at' => $session->expires_at->toIso8601String(),
+        ];
     }
 
     public function manuals(CustomerSession $session): array
     {
-        $manuals = Manual::query()
-            ->published()
-            ->where('vehicle_variant_id', $session->vehicle_variant_id)
-            ->where('engine_id', $session->engine_id)
+        $manuals = $this->availableManuals(Manual::query(), $session->fert_id)
             ->where('language_id', $session->language_id)
-            ->whereHas('qrTypes', fn ($query) => $query->where('qr_types.id', $session->qrCode->qr_type_id))
-            ->whereHas('versions', fn ($query) => $query->where('status', 'published'))
-            ->with(['manualType', 'vehicleVariant', 'engine', 'language', 'versions' => fn ($query) => $query->where('status', 'published')->orderByDesc('published_at')->orderByDesc('id')])
+            ->with(['manualType', 'language', 'versions' => fn ($query) => $query->where('status', 'published')->orderByDesc('published_at')->orderByDesc('id')])
             ->orderByDesc('updated_at')
             ->get();
 
-        return $manuals->map(function (Manual $manual) {
-            $versions = $manual->versions;
-
+        return $manuals->map(function (Manual $manual) use ($session) {
             return [
                 'id' => $manual->id,
                 'title' => $manual->title,
                 'type' => $manual->manualType?->name,
-                'vehicle' => $manual->vehicleVariant?->name,
-                'engine' => $manual->engine?->name,
+                'machine' => $session->fert?->name,
                 'language' => $manual->language?->name,
                 'updated_at' => $manual->updated_at?->toIso8601String(),
-                'versions' => $versions->map(fn ($version) => [
+                'versions' => $manual->versions->map(fn ($version) => [
                     'id' => $version->id,
                     'version' => $version->version,
                     'published_at' => $version->published_at?->toIso8601String(),
@@ -213,14 +177,9 @@ class PortalService
 
     public function authorizeManual(CustomerSession $session, int $manualId, ?int $versionId = null): array
     {
-        $manual = Manual::query()
-            ->published()
+        $manual = $this->availableManuals(Manual::query(), $session->fert_id)
             ->whereKey($manualId)
-            ->where('vehicle_variant_id', $session->vehicle_variant_id)
-            ->where('engine_id', $session->engine_id)
             ->where('language_id', $session->language_id)
-            ->whereHas('qrTypes', fn ($query) => $query->where('qr_types.id', $session->qrCode->qr_type_id))
-            ->whereHas('versions', fn ($query) => $query->where('status', 'published'))
             ->firstOrFail();
 
         $versionQuery = $manual->versions()->where('status', 'published');
@@ -250,12 +209,45 @@ class PortalService
         QrScanLog::create([
             'qr_code_id' => $qr->id,
             'customer_session_id' => $session?->id,
-            'vehicle_variant_id' => $session?->vehicle_variant_id,
-            'engine_id' => $session?->engine_id,
+            'fert_id' => $session?->fert_id,
+            'machine_serial_no' => $session?->machine_serial_no,
             'language_id' => $session?->language_id,
             'ip_address' => $request->ip(),
             'user_agent' => $request->userAgent(),
             'device' => $request->header('X-Device-Name'),
         ]);
+    }
+
+    /**
+     * Attach the machine details to the scan that started this session, so scan
+     * reports show which machine each scan was for.
+     */
+    private function linkScan(QrCode $qr, CustomerSession $session, Request $request): void
+    {
+        $scan = QrScanLog::query()
+            ->where('qr_code_id', $qr->id)
+            ->whereNull('customer_session_id')
+            ->where('ip_address', $request->ip())
+            ->where('created_at', '>=', now()->subMinutes((int) config('portal.customer_session_minutes', 120)))
+            ->latest('id')
+            ->first();
+
+        $scan?->update([
+            'customer_session_id' => $session->id,
+            'fert_id' => $session->fert_id,
+            'machine_serial_no' => $session->machine_serial_no,
+            'language_id' => $session->language_id,
+        ]);
+    }
+
+    /**
+     * Published manuals with a published version, mapped to the given FERT.
+     */
+    private function availableManuals(Builder $query, ?int $fertId): Builder
+    {
+        return $query
+            ->published()
+            ->whereHas('ferts', fn (Builder $builder) => $builder->whereKey($fertId ?? 0))
+            ->whereHas('versions', fn (Builder $builder) => $builder->where('status', 'published'));
     }
 }

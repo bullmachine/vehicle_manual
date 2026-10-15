@@ -4,13 +4,12 @@ namespace Tests\Feature;
 
 use App\Models\Customer;
 use App\Models\CustomerSession;
-use App\Models\Engine;
+use App\Models\Fert;
 use App\Models\Language;
 use App\Models\QrCode;
 use App\Models\Role;
 use App\Models\SupportEnquiry;
 use App\Models\User;
-use App\Models\VehicleVariant;
 use App\Services\PortalService;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -325,9 +324,9 @@ class SupportEnquiryTest extends TestCase
             'session_token_hash' => hash('sha256', 'support-enquiry-'.uniqid()),
             'customer_id' => $customer->id,
             'qr_code_id' => $qr->id,
-            'vehicle_variant_id' => $qr->vehicle_variant_id ?? VehicleVariant::query()->firstOrFail()->id,
-            'engine_id' => $qr->engine_id ?? Engine::query()->firstOrFail()->id,
-            'language_id' => $qr->language_id ?? Language::query()->firstOrFail()->id,
+            'fert_id' => Fert::query()->firstOrFail()->id,
+            'machine_serial_no' => 'BS255',
+            'language_id' => Language::query()->firstOrFail()->id,
             'expires_at' => now()->addHour(),
         ]);
     }

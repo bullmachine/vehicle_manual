@@ -16,8 +16,6 @@ class Manual extends Model
     protected $fillable = [
         'title',
         'manual_type_id',
-        'vehicle_variant_id',
-        'engine_id',
         'language_id',
         'status',
         'show_old_versions',
@@ -34,16 +32,6 @@ class Manual extends Model
         return $this->belongsTo(ManualType::class);
     }
 
-    public function vehicleVariant(): BelongsTo
-    {
-        return $this->belongsTo(VehicleVariant::class);
-    }
-
-    public function engine(): BelongsTo
-    {
-        return $this->belongsTo(Engine::class);
-    }
-
     public function language(): BelongsTo
     {
         return $this->belongsTo(Language::class);
@@ -54,9 +42,9 @@ class Manual extends Model
         return $this->hasMany(ManualVersion::class)->orderByDesc('published_at')->orderByDesc('id');
     }
 
-    public function qrTypes(): BelongsToMany
+    public function ferts(): BelongsToMany
     {
-        return $this->belongsToMany(QrType::class, 'manual_qr_type');
+        return $this->belongsToMany(Fert::class, 'fert_manual');
     }
 
     public function accessLogs(): HasMany

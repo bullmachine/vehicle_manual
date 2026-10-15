@@ -7,11 +7,8 @@ use App\Models\QrCode;
 use App\Models\Role;
 use App\Models\Setting;
 use App\Models\User;
-use App\Models\VehicleEngineMapping;
-use App\Models\VehicleVariant;
 use App\Services\PhoneNumberService;
 use App\Services\PortalService;
-use App\Services\SmsProvider;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Validation\ValidationException;
@@ -244,46 +241,34 @@ class PhoneNumberTest extends TestCase
             ->assertJsonPath('default_phone_region', 'AE');
     }
 
-    public function test_the_otp_round_trip_works_for_an_international_number(): void
+    public function test_a_customer_session_accepts_an_international_number(): void
     {
-        Setting::query()->where('key', 'otp_length')->update(['value' => '4']);
-        $capturedSms = new class implements SmsProvider
-        {
-            public string $message = '';
-
-            public function send(string $mobile, string $message): void
-            {
-                $this->message = $message;
-            }
-        };
-        $this->app->instance(SmsProvider::class, $capturedSms);
-
         $qr = QrCode::query()->firstOrFail();
-        $token = app(PortalService::class)->qrToken($qr);
-        $vehicle = VehicleVariant::query()->where('code', 'TRACTOR-50')->firstOrFail();
         $payload = [
-            'qr_token' => $token,
+            'qr_token' => app(PortalService::class)->qrToken($qr),
+            'machine_serial_no' => 'BS255',
             'name' => 'Layla Hassan',
             'mobile' => '+971 50 123 4567',
-            'vehicle_variant_id' => $vehicle->id,
-            'engine_id' => VehicleEngineMapping::query()->where('vehicle_variant_id', $vehicle->id)->whereHas('engine', fn ($query) => $query->where('code', 'DIESEL-A'))->value('engine_id'),
             'language_id' => Language::query()->where('code', 'en')->value('id'),
         ];
 
-        $this->postJson('/api/public/customer/request-otp', $payload)->assertOk();
-        preg_match('/(\d{4})/', $capturedSms->message, $matches);
-        $this->assertNotEmpty($matches[1] ?? null);
-
-        $this->postJson('/api/public/customer/verify-otp', [...$payload, 'otp' => $matches[1]])
+        $this->postJson('/api/public/customer/session', $payload)
             ->assertOk()
             ->assertJsonPath('data.customer.mobile', '+971501234567')
             ->assertCookie('customer_session');
 
-        $this->assertDatabaseHas('otp_verifications', [
-            'mobile' => '+971501234567',
-            'verified_at' => now()->toDateTimeString(),
-        ]);
         $this->assertDatabaseHas('customers', ['name' => 'Layla Hassan', 'mobile' => '+971501234567']);
+    }
+
+    public function test_an_invalid_optional_mobile_is_still_rejected(): void
+    {
+        $this->postJson('/api/public/customer/session', [
+            'qr_token' => app(PortalService::class)->qrToken(QrCode::query()->firstOrFail()),
+            'machine_serial_no' => 'BS255',
+            'name' => 'Bad Number',
+            'mobile' => '12',
+            'language_id' => Language::query()->where('code', 'en')->value('id'),
+        ])->assertStatus(422)->assertJsonValidationErrors('mobile');
     }
 
     public function test_two_different_countries_do_not_collide_on_the_unique_mobile_constraint(): void

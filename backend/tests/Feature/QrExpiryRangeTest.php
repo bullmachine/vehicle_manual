@@ -69,7 +69,7 @@ class QrExpiryRangeTest extends TestCase
         $this->getJson('/api/public/qr/'.$token)
             ->assertOk()
             ->assertJsonPath('qr.reference', $qr->reference)
-            ->assertJsonCount(6, 'options.vehicle_variants');
+            ->assertJsonCount(5, 'languages');
     }
 
     public function test_an_impossible_expiry_date_is_rejected_with_a_validation_error(): void

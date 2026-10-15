@@ -16,9 +16,6 @@ class QrCode extends Model
         'token_hash',
         'token_ciphertext',
         'qr_type_id',
-        'vehicle_variant_id',
-        'engine_id',
-        'language_id',
         'label',
         'vehicle_number',
         'chassis_number',
@@ -43,21 +40,6 @@ class QrCode extends Model
     public function type(): BelongsTo
     {
         return $this->belongsTo(QrType::class, 'qr_type_id');
-    }
-
-    public function vehicleVariant(): BelongsTo
-    {
-        return $this->belongsTo(VehicleVariant::class);
-    }
-
-    public function engine(): BelongsTo
-    {
-        return $this->belongsTo(Engine::class);
-    }
-
-    public function language(): BelongsTo
-    {
-        return $this->belongsTo(Language::class);
     }
 
     public function sessions(): \Illuminate\Database\Eloquent\Relations\HasMany

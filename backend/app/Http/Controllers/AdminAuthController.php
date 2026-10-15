@@ -40,8 +40,14 @@ class AdminAuthController extends Controller
         }
 
         if ($user->two_factor_confirmed_at) {
-            if (! $validated['otp'] || ! $this->twoFactor->verify($user, $validated['otp'])) {
+            if (! $validated['otp']) {
                 return response()->json(['message' => 'Two-factor verification is required.', 'two_factor_required' => true], 202);
+            }
+            if (! $this->twoFactor->verify($user, $validated['otp'])) {
+                // Count wrong codes like wrong passwords so the 6-digit code cannot be guessed.
+                RateLimiter::hit($key, 900);
+
+                return response()->json(['message' => 'The two-factor code is incorrect.', 'two_factor_required' => true], 202);
             }
         }
 

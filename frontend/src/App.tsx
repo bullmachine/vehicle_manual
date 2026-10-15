@@ -10,6 +10,7 @@ const AdminAuditPage = lazy(() => import('./pages/AdminAuditPage').then(({ Admin
 const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage').then(({ AdminDashboardPage }) => ({ default: AdminDashboardPage })))
 const AdminEnquiryPage = lazy(() => import('./pages/AdminEnquiryPage').then(({ AdminEnquiryPage }) => ({ default: AdminEnquiryPage })))
 const AdminLoginPage = lazy(() => import('./pages/AdminLoginPage').then(({ AdminLoginPage }) => ({ default: AdminLoginPage })))
+const AdminMachinesPage = lazy(() => import('./pages/AdminMachinesPage').then(({ AdminMachinesPage }) => ({ default: AdminMachinesPage })))
 const AdminManualsPage = lazy(() => import('./pages/AdminManualsPage').then(({ AdminManualsPage }) => ({ default: AdminManualsPage })))
 const AdminMastersPage = lazy(() => import('./pages/AdminMastersPage').then(({ AdminMastersPage }) => ({ default: AdminMastersPage })))
 const AdminQrPage = lazy(() => import('./pages/AdminQrPage').then(({ AdminQrPage }) => ({ default: AdminQrPage })))
@@ -63,6 +64,7 @@ function App() {
             <Route element={<AdminLayout />}>
               <Route index element={<AdminDashboardPage />} />
               <Route path="manuals" element={<AdminManualsPage />} />
+              <Route path="machines" element={<AdminMachinesPage />} />
               <Route path="qr-codes" element={<AdminQrPage />} />
               <Route path="masters/:resource" element={<AdminMastersPage />} />
               <Route path="reports" element={<AdminReportsPage />} />

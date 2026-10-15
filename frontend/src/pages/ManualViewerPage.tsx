@@ -11,8 +11,8 @@ type ManualDetail = {
   id: number
   title: string
   type?: string
-  vehicle?: string
-  engine?: string
+  machine?: string
+  machine_serial_no?: string
   language?: string
   version: ManualVersion
 }
@@ -82,7 +82,7 @@ export function ManualViewerPage() {
   if (error || !detail) return <div className="viewer-page"><div className="viewer-error"><ErrorState message={error || 'Manual not found.'} onRetry={() => navigate(-1)} /><button className="button button-ghost" onClick={() => navigate(-1)}><ArrowLeft size={17} /> Back to manuals</button></div></div>
 
   const pageCount = Math.max(1, detail.version.page_count)
-  const watermark = session ? `${session.customer.name} · ${session.customer.mobile} · ${session.id}` : 'Protected customer session'
+  const watermark = session ? [session.customer.name, session.customer.mobile, session.machine.serial_no ? `MSNO ${session.machine.serial_no}` : null, session.id].filter(Boolean).join(' · ') : 'Protected customer session'
   return <div className="viewer-page" onContextMenu={(event) => event.preventDefault()}>
     <header className="viewer-header"><button className="viewer-back" onClick={() => navigate(-1)}><ArrowLeft size={18} /><span>Manuals</span></button><div className="viewer-title"><strong>{detail.title}</strong><span>Version {detail.version.version} · {detail.language}</span></div><div className="viewer-actions"><span className="viewer-protected"><ShieldCheck size={15} /> Protected</span><button className="icon-button" onClick={openFullscreen} aria-label="Full screen"><Expand size={19} /></button></div></header>
     <main className="viewer-main"><div className="viewer-stage" style={{ '--viewer-zoom': zoom } as CSSProperties}><div className="page-shadow" /><img className="manual-page-image" src={pageUrl} alt={`Manual page ${page}`} crossOrigin="use-credentials" onLoad={() => setPageLoading(false)} onError={() => { setPageLoading(false); setError('This page could not be loaded.') }} /><div className="watermark-layer" aria-hidden="true">{Array.from({ length: 12 }, (_, index) => <span key={index}>{watermark}</span>)}</div>{pageLoading && <div className="page-loader"><LoaderCircle className="spin" size={30} /><span>Loading protected page…</span></div>}</div></main>

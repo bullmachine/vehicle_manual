@@ -3,16 +3,8 @@
 return [
     'name' => env('APP_NAME', 'BULL Vehicle Manual Portal'),
 
-    'otp' => [
-        'enabled' => filter_var(env('OTP_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
-        'length' => (int) env('OTP_LENGTH', 6),
-        'expiry_minutes' => (int) env('OTP_EXPIRY_MINUTES', 5),
-        'max_attempts' => (int) env('OTP_MAX_ATTEMPTS', 5),
-        'resend_cooldown' => (int) env('OTP_RESEND_COOLDOWN', 30),
-        'requests_per_window' => (int) env('OTP_REQUESTS_PER_WINDOW', 5),
-        'window_minutes' => (int) env('OTP_WINDOW_MINUTES', 15),
-        'provider' => env('OTP_PROVIDER', 'fake'),
-    ],
+    // Dummy machine records in the SAP API format, loaded by the seeder or `php artisan machines:sync --file=...`.
+    'machine_data_path' => env('MACHINE_DATA_PATH', database_path('data/machines.json')),
 
     'customer_session_minutes' => (int) env('CUSTOMER_SESSION_MINUTES', 120),
 
@@ -24,7 +16,8 @@ return [
         ))),
     ],
 
-    'manual_max_file_size' => (int) env('MANUAL_MAX_FILE_SIZE', 52428800),    'pdf_renderer' => env('PDF_RENDERER', 'imagick'),
+    'manual_max_file_size' => (int) env('MANUAL_MAX_FILE_SIZE', 52428800),
+    'pdf_renderer' => env('PDF_RENDERER', 'imagick'),
     'pdf_renderer_required' => filter_var(env('PDF_RENDERER_REQUIRED', false), FILTER_VALIDATE_BOOLEAN),
     'frontend_url' => env('FRONTEND_URL', env('APP_URL', 'http://localhost:5173')),
 ];

@@ -8,34 +8,28 @@ export type Option = {
 export type QrContext = {
   qr: {
     reference: string
-    type: { id: number; code: string; name: string }
+    type: { id: number; code: string; name: string } | null
     label: string
   }
-  selection: {
-    vehicle_variant_id?: number
-    vehicle_variant?: Option
-    engine_id?: number
-    engine?: Option
-    language_id?: number
-    language?: Option
-    vehicle_required: boolean
-    engine_required: boolean
-    language_required: boolean
+  languages: Option[]
+  default_phone_region?: string
+}
+
+export type Fert = { id: number; code: string; name: string }
+
+export type MachineLookup = {
+  machine: {
+    serial_no: string
+    description: string
+    fert: Fert
   }
-  options: {
-    vehicle_variants: Option[]
-    engines: Option[]
-    languages: Option[]
-  }
-  otp_enabled: boolean
-  otp_length: number
+  languages: Option[]
 }
 
 export type CustomerSession = {
   id: number
-  customer: { id: number; name: string; mobile: string }
-  vehicle_variant: { id: number; name: string }
-  engine: { id: number; name: string }
+  customer: { id: number; name: string; mobile: string | null }
+  machine: { serial_no: string | null; fert: Fert | null }
   language: { id: number; name: string }
   expires_at: string
 }
@@ -52,8 +46,7 @@ export type ManualCard = {
   id: number
   title: string
   type?: string | null
-  vehicle?: string | null
-  engine?: string | null
+  machine?: string | null
   language?: string | null
   updated_at?: string | null
   versions: ManualVersion[]
@@ -75,8 +68,7 @@ export type AdminManualDetail = {
   id: number
   title: string
   status: string
-  vehicle_variant?: { name: string } | null
-  engine?: { name: string } | null
+  ferts?: Fert[]
   language?: { name: string } | null
   manual_type?: { name: string } | null
   updated_at?: string | null
@@ -114,5 +106,5 @@ export type SupportEnquiry = {
   created_at: string
   resolved_at: string | null
   qr: { id: number; reference: string; label: string | null } | null
-  vehicle: string | null
+  machine: string | null
 }
