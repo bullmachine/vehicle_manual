@@ -1,4 +1,4 @@
-import { BarChart3, BookOpen, ChevronDown, ClipboardList, LayoutDashboard, LogOut, Menu, MessageSquare, QrCode, Settings, ShieldCheck, X } from 'lucide-react'
+import { BarChart3, BookOpen, ChevronDown, ClipboardList, Cpu, LayoutDashboard, LogOut, Menu, MessageSquare, QrCode, Settings, ShieldCheck, X } from 'lucide-react'
 import { useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { apiFetch, clearAdminToken, runtimeConfigDiagnostic } from '../lib/api'
@@ -7,8 +7,9 @@ import { BrandMark } from './BrandMark'
 const navigation = [
   { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/admin/manuals', label: 'Manuals', icon: BookOpen },
+  { to: '/admin/machines', label: 'Machines', icon: Cpu },
   { to: '/admin/qr-codes', label: 'QR management', icon: QrCode },
-  { to: '/admin/masters/vehicles', label: 'Master data', icon: ClipboardList },
+  { to: '/admin/masters/ferts', label: 'Master data', icon: ClipboardList },
   { to: '/admin/reports', label: 'Reports', icon: BarChart3 },
   { to: '/admin/enquiries', label: 'Support requests', icon: MessageSquare },
   { to: '/admin/settings', label: 'Settings', icon: Settings },
@@ -74,6 +75,7 @@ export function AdminLayout() {
 
 function getPageName(path: string): string {
   if (path.includes('manuals')) return 'Manuals'
+  if (path.includes('machines')) return 'Machines'
   if (path.includes('qr-codes')) return 'QR management'
   if (path.includes('masters')) return 'Master data'
   if (path.includes('reports')) return 'Reports'

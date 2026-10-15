@@ -27,27 +27,33 @@ class PdfPageRenderer
             ]);
         }
 
-        $disk = Storage::disk($version->file_disk);
-        $path = $version->file_path;
-        $temporaryPath = tempnam(sys_get_temp_dir(), 'manual-page-');
+        if ($page < 1) {
+            abort(404, 'Page not found.');
+        }
+
+        $path = Storage::disk($version->file_disk)->path($version->file_path);
+        $image = new \Imagick();
 
         try {
-            $image = new \Imagick();
-            $image->readImage($disk->path($path));
-            if ($page < 1 || $page > $image->getNumberImages()) {
-                abort(404, 'Page not found.');
-            }
-            $image->setIteratorIndex($page - 1);
-            $image->setImageFormat('webp');
-            $image->setImageCompressionQuality(82);
-            $contents = $image->getImageBlob();
-            $image->clear();
+            // Rasterise only the requested page ("file.pdf[n]" is zero-based) instead of the whole document.
+            $image->setResolution(150, 150);
+            $image->readImage($path.'['.($page - 1).']');
+        } catch (\ImagickException) {
             $image->destroy();
-        } finally {
-            if ($temporaryPath && file_exists($temporaryPath)) {
-                @unlink($temporaryPath);
-            }
+            abort(404, 'Page not found.');
         }
+
+        // PDF pages can be transparent; flatten onto white so the page is readable everywhere.
+        $image->setImageBackgroundColor('white');
+        $image->setImageAlphaChannel(\Imagick::ALPHACHANNEL_REMOVE);
+        $image = $image->mergeImageLayers(\Imagick::LAYERMETHOD_FLATTEN);
+        $this->drawWatermark($image, $watermark);
+
+        $image->setImageFormat('webp');
+        $image->setImageCompressionQuality(82);
+        $contents = $image->getImageBlob();
+        $image->clear();
+        $image->destroy();
 
         return response($contents, 200, [
             'Content-Type' => 'image/webp',
@@ -56,6 +62,29 @@ class PdfPageRenderer
             'Content-Disposition' => 'inline',
             'X-Manual-Watermark' => substr($watermark, 0, 120),
         ]);
+    }
+
+    /**
+     * Tile a faint diagonal watermark (customer name, mobile, serial number) across the page,
+     * so a screenshot or photo of the page can be traced back to the session.
+     */
+    private function drawWatermark(\Imagick $image, string $watermark): void
+    {
+        $width = $image->getImageWidth();
+        $height = $image->getImageHeight();
+        $draw = new \ImagickDraw();
+        $draw->setFillColor(new \ImagickPixel('rgba(15, 23, 42, 0.13)'));
+        $draw->setFontSize(max(14, (int) round($width / 45)));
+
+        $stepX = (int) max(300, $width / 2);
+        $stepY = (int) max(160, $height / 6);
+        for ($y = $stepY / 2; $y < $height + $stepY; $y += $stepY) {
+            for ($x = -$stepX / 2; $x < $width; $x += $stepX) {
+                $image->annotateImage($draw, $x, $y, -28, $watermark);
+            }
+        }
+
+        $draw->destroy();
     }
 
     private function placeholder(ManualVersion $version, int $page, string $watermark): string

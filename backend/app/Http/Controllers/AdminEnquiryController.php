@@ -17,11 +17,11 @@ class AdminEnquiryController extends Controller
     public function index(Request $request): JsonResponse
     {
         $enquiries = SupportEnquiry::query()
-            ->with(['qrCode:id,reference,label', 'session.vehicleVariant:id,name', 'session.engine:id,name', 'session.language:id,name'])
+            ->with(['qrCode:id,reference,label', 'session.fert:id,code,name', 'session.language:id,name'])
             ->status($request->input('status'))
             ->search($request->input('q'))
             ->latest('created_at')
-            ->paginate((int) $request->input('per_page', 30));
+            ->paginate($this->perPage($request, 30));
 
         $enquiries->setCollection($enquiries->getCollection()->map(fn (SupportEnquiry $enquiry) => [
             'id' => $enquiry->id,
@@ -41,7 +41,7 @@ class AdminEnquiryController extends Controller
                 'reference' => $enquiry->qrCode->reference,
                 'label' => $enquiry->qrCode->label,
             ] : null,
-            'vehicle' => $this->contextLabel($enquiry),
+            'machine' => $this->contextLabel($enquiry),
         ]));
 
         return response()->json($enquiries);
@@ -56,8 +56,8 @@ class AdminEnquiryController extends Controller
         }
 
         return collect([
-            $session->vehicleVariant?->name,
-            $session->engine?->name,
+            $session->machine_serial_no ? 'MSNO '.$session->machine_serial_no : null,
+            $session->fert?->name,
             $session->language?->name,
         ])->filter()->implode(' · ');
     }

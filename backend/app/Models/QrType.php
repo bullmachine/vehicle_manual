@@ -18,16 +18,6 @@ class QrType extends Model
         return $this->hasMany(QrCode::class);
     }
 
-    public function manuals(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
-    {
-        return $this->belongsToMany(Manual::class, 'manual_qr_type');
-    }
-
-    public function vehicleVariants(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
-    {
-        return $this->belongsToMany(VehicleVariant::class, 'vehicle_variant_qr_type');
-    }
-
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('status', 'active');

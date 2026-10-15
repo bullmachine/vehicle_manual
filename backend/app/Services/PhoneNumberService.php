@@ -95,7 +95,9 @@ class PhoneNumberService
 
         if (! $this->util()->isValidNumber($parsed)) {
             throw ValidationException::withMessages([
-                $field => 'That mobile number is not valid. Check the country code and the number of digits.',
+                $field => str_starts_with($input, '+')
+                    ? 'That mobile number is not valid. Check the country code and the number of digits.'
+                    : "That mobile number is not valid. For numbers outside {$this->countryName($default)}, start with + and the country code, e.g. +971 50 123 4567.",
             ]);
         }
 
@@ -172,16 +174,28 @@ class PhoneNumberService
     }
 
     public function countryName(string $region): string
-    {        $region = strtoupper(trim($region));
+    {
+        $region = strtoupper(trim($region));
 
         if ($region === '') {
             return 'that country';
+        }
+
+        // The intl extension is not always enabled (e.g. a default XAMPP PHP); fall back to common names.
+        if (! class_exists(\Locale::class)) {
+            return self::FALLBACK_COUNTRY_NAMES[$region] ?? $region;
         }
 
         $name = \Locale::getDisplayRegion('-'.$region, 'en');
 
         return $name === '' ? $region : $name;
     }
+
+    private const FALLBACK_COUNTRY_NAMES = [
+        'IN' => 'India', 'AE' => 'United Arab Emirates', 'SA' => 'Saudi Arabia', 'QA' => 'Qatar', 'OM' => 'Oman',
+        'KW' => 'Kuwait', 'BH' => 'Bahrain', 'LK' => 'Sri Lanka', 'NP' => 'Nepal', 'BD' => 'Bangladesh',
+        'SG' => 'Singapore', 'MY' => 'Malaysia', 'GB' => 'United Kingdom', 'US' => 'United States',
+    ];
 
     public function dialFor(string $region): string
     {

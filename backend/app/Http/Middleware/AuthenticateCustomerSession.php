@@ -19,7 +19,7 @@ class AuthenticateCustomerSession
         }
 
         $session = CustomerSession::query()
-            ->with(['customer', 'qrCode', 'vehicleVariant', 'engine', 'language'])
+            ->with(['customer', 'qrCode', 'fert', 'language'])
             ->where('session_token_hash', hash('sha256', $token))
             ->whereNull('revoked_at')
             ->where('expires_at', '>', now())

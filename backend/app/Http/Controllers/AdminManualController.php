@@ -24,16 +24,16 @@ class AdminManualController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $query = Manual::query()->with(['manualType', 'vehicleVariant', 'engine', 'language', 'versions' => fn ($query) => $query->latest('published_at')->latest('id')]);
+        $query = Manual::query()->with(['manualType', 'ferts:id,code,name', 'language', 'versions' => fn ($query) => $query->latest('published_at')->latest('id')]);
         $this->applyFilters($query, $request);
         $query->orderByDesc('updated_at')->orderByDesc('id');
 
-        return response()->json($query->paginate((int) $request->input('per_page', 25)));
+        return response()->json($query->paginate($this->perPage($request, 25, 100)));
     }
 
     public function show(int $manualId): JsonResponse
     {
-        $manual = Manual::query()->with(['manualType', 'vehicleVariant', 'engine', 'language', 'qrTypes', 'versions' => fn ($query) => $query->orderByDesc('published_at')->orderByDesc('id')])->findOrFail($manualId);
+        $manual = Manual::query()->with(['manualType', 'ferts:id,code,name', 'language', 'versions' => fn ($query) => $query->orderByDesc('published_at')->orderByDesc('id')])->findOrFail($manualId);
 
         return response()->json(['data' => $manual]);
     }
@@ -43,15 +43,13 @@ class AdminManualController extends Controller
         $validated = $request->validate([
             'title' => ['required', 'string', 'max:180'],
             'manual_type_id' => ['required', 'integer', 'exists:manual_types,id'],
-            'vehicle_variant_id' => ['required', 'integer', 'exists:vehicle_variants,id'],
-            'engine_id' => ['required', 'integer', 'exists:engines,id'],
             'language_id' => ['required', 'integer', 'exists:languages,id'],
             'version' => ['required', 'string', 'max:30', 'regex:/^[A-Za-z0-9._-]+$/'],
             'effective_date' => ['nullable', 'date'],
             'description' => ['nullable', 'string', 'max:3000'],
             'status' => ['nullable', 'in:draft,pending_review,published'],
-            'qr_type_ids' => ['required', 'array', 'min:1'],
-            'qr_type_ids.*' => ['integer', 'exists:qr_types,id'],
+            'fert_ids' => ['required', 'array', 'min:1'],
+            'fert_ids.*' => ['integer', 'distinct', 'exists:ferts,id'],
             'pdf' => ['required', 'file'],
         ]);
         $this->validatePdf($request->file('pdf'));
@@ -64,13 +62,11 @@ class AdminManualController extends Controller
             $manual = Manual::create([
                 'title' => $validated['title'],
                 'manual_type_id' => $validated['manual_type_id'],
-                'vehicle_variant_id' => $validated['vehicle_variant_id'],
-                'engine_id' => $validated['engine_id'],
                 'language_id' => $validated['language_id'],
                 'status' => $status,
                 'created_by' => $request->user()->id,
             ]);
-            $manual->qrTypes()->sync($validated['qr_type_ids']);
+            $manual->ferts()->sync($validated['fert_ids']);
             $version = $manual->versions()->create([
                 'version' => $validated['version'],
                 'effective_date' => $validated['effective_date'] ?? null,
@@ -91,7 +87,7 @@ class AdminManualController extends Controller
         });
         $this->audit->record('uploaded', 'manuals', Manual::class, $manual[0]->id, [], ['title' => $manual[0]->title, 'version' => $manual[1]->version]);
 
-        return response()->json(['data' => $manual[0]->load(['versions', 'qrTypes'])], 201);
+        return response()->json(['data' => $manual[0]->load(['versions', 'ferts:id,code,name'])], 201);
     }
 
     public function update(Request $request, int $manualId): JsonResponse
@@ -100,20 +96,22 @@ class AdminManualController extends Controller
         $validated = $request->validate([
             'title' => ['sometimes', 'string', 'max:180'],
             'manual_type_id' => ['sometimes', 'integer', 'exists:manual_types,id'],
-            'vehicle_variant_id' => ['sometimes', 'integer', 'exists:vehicle_variants,id'],
-            'engine_id' => ['sometimes', 'integer', 'exists:engines,id'],
             'language_id' => ['sometimes', 'integer', 'exists:languages,id'],
-            'qr_type_ids' => ['sometimes', 'array', 'min:1'],
-            'qr_type_ids.*' => ['integer', 'exists:qr_types,id'],
+            'fert_ids' => ['sometimes', 'array', 'min:1'],
+            'fert_ids.*' => ['integer', 'distinct', 'exists:ferts,id'],
         ]);
-        $old = $manual->only(array_keys($validated));
-        $manual->update($validated);
-        if (isset($validated['qr_type_ids'])) {
-            $manual->qrTypes()->sync($validated['qr_type_ids']);
+        $attributes = Arr::except($validated, ['fert_ids']);
+        $old = $manual->only(array_keys($attributes));
+        if (isset($validated['fert_ids'])) {
+            $old['fert_ids'] = $manual->ferts()->pluck('ferts.id')->all();
+        }
+        $manual->update($attributes);
+        if (isset($validated['fert_ids'])) {
+            $manual->ferts()->sync($validated['fert_ids']);
         }
         $this->audit->record('updated', 'manuals', Manual::class, $manual->id, $old, $validated);
 
-        return response()->json(['data' => $manual->fresh(['versions', 'qrTypes'])]);
+        return response()->json(['data' => $manual->fresh(['versions', 'ferts:id,code,name'])]);
     }
 
     public function storeVersion(Request $request, int $manualId): JsonResponse
@@ -169,8 +167,9 @@ class AdminManualController extends Controller
     public function unpublish(int $manualId): JsonResponse
     {
         $manual = Manual::query()->findOrFail($manualId);
+        $previous = $manual->status;
         $manual->update(['status' => 'unpublished']);
-        $this->audit->record('unpublished', 'manuals', Manual::class, $manual->id, ['status' => $manual->status], ['status' => 'unpublished']);
+        $this->audit->record('unpublished', 'manuals', Manual::class, $manual->id, ['status' => $previous], ['status' => 'unpublished']);
 
         return response()->json(['data' => $manual->fresh()]);
     }
@@ -178,9 +177,10 @@ class AdminManualController extends Controller
     public function archive(int $manualId): JsonResponse
     {
         $manual = Manual::query()->findOrFail($manualId);
+        $previous = $manual->status;
         $manual->update(['status' => 'archived']);
         $manual->versions()->update(['status' => 'archived']);
-        $this->audit->record('archived', 'manuals', Manual::class, $manual->id, ['status' => $manual->status], ['status' => 'archived']);
+        $this->audit->record('archived', 'manuals', Manual::class, $manual->id, ['status' => $previous], ['status' => 'archived']);
 
         return response()->json(['data' => $manual->fresh()]);
     }
@@ -216,10 +216,13 @@ class AdminManualController extends Controller
 
     private function applyFilters($query, Request $request): void
     {
-        foreach (['status', 'manual_type_id', 'vehicle_variant_id', 'engine_id', 'language_id'] as $field) {
+        foreach (['status', 'manual_type_id', 'language_id'] as $field) {
             if ($request->filled($field)) {
                 $query->where($field, $request->input($field));
             }
+        }
+        if ($request->filled('fert_id')) {
+            $query->whereHas('ferts', fn ($builder) => $builder->whereKey($request->integer('fert_id')));
         }
         if ($request->filled('q')) {
             $query->where('title', 'like', '%'.$request->input('q').'%');

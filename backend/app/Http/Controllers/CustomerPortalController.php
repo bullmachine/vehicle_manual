@@ -18,7 +18,7 @@ class CustomerPortalController extends Controller
 
     public function session(Request $request): JsonResponse
     {
-        return response()->json(['data' => $this->sessionData($request->attributes->get('customer_session'))]);
+        return response()->json(['data' => $this->portal->sessionData($request->attributes->get('customer_session'))]);
     }
 
     public function manuals(Request $request): JsonResponse
@@ -37,8 +37,8 @@ class CustomerPortalController extends Controller
             'id' => $manual->id,
             'title' => $manual->title,
             'type' => $manual->manualType?->name,
-            'vehicle' => $manual->vehicleVariant?->name,
-            'engine' => $manual->engine?->name,
+            'machine' => $session->fert?->name,
+            'machine_serial_no' => $session->machine_serial_no,
             'language' => $manual->language?->name,
             'version' => $version->only(['id', 'version', 'page_count', 'published_at', 'effective_date']),
         ]]);
@@ -51,11 +51,12 @@ class CustomerPortalController extends Controller
         [$manual, $version] = $this->portal->authorizeManual($session, $manualId, $versionId);
         abort_if($page < 1 || ($version->page_count > 0 && $page > $version->page_count), 404);
         $this->access->record($session, $manual, $version, 'page_view', $request, $page);
-        $watermark = implode(' · ', [
+        $watermark = implode(' · ', array_filter([
             $session->customer->name,
             $session->customer->mobile,
+            'MSNO '.$session->machine_serial_no,
             'Session '.substr($session->session_token_hash, 0, 8),
-        ]);
+        ]));
 
         return $this->renderer->render($version, $page, $watermark);
     }
@@ -104,17 +105,5 @@ class CustomerPortalController extends Controller
         $matches = $text !== '' && stripos($text, $validated['q']) !== false;
 
         return response()->json(['data' => ['available' => $text !== '', 'matches' => $matches ? [$validated['q']] : []]]);
-    }
-
-    private function sessionData($session): array
-    {
-        return [
-            'id' => $session->id,
-            'customer' => $session->customer->only(['id', 'name', 'mobile']),
-            'vehicle_variant' => $session->vehicleVariant->only(['id', 'name']),
-            'engine' => $session->engine->only(['id', 'name']),
-            'language' => $session->language->only(['id', 'name']),
-            'expires_at' => $session->expires_at->toIso8601String(),
-        ];
     }
 }

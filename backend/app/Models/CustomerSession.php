@@ -14,8 +14,8 @@ class CustomerSession extends Model
         'session_token_hash',
         'customer_id',
         'qr_code_id',
-        'vehicle_variant_id',
-        'engine_id',
+        'fert_id',
+        'machine_serial_no',
         'language_id',
         'expires_at',
         'last_seen_at',
@@ -45,14 +45,9 @@ class CustomerSession extends Model
         return $this->belongsTo(QrCode::class);
     }
 
-    public function vehicleVariant(): BelongsTo
+    public function fert(): BelongsTo
     {
-        return $this->belongsTo(VehicleVariant::class);
-    }
-
-    public function engine(): BelongsTo
-    {
-        return $this->belongsTo(Engine::class);
+        return $this->belongsTo(Fert::class);
     }
 
     public function language(): BelongsTo

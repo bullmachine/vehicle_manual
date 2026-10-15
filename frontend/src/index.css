@@ -73,6 +73,12 @@ h1, h2, h3, strong { color: var(--ink); }
 .form-error, .inline-alert { padding: 11px 14px; border-radius: 9px; font-size: 12px; line-height: 1.45; }
 .form-error, .error-alert { color: #a83f49; background: var(--red-soft); border: 1px solid #f7d4d7; }
 .inline-alert { display: flex; align-items: center; gap: 8px; }
+.success-alert { color: #0f6f62; background: var(--green-soft); border: 1px solid #c4ebdf; }
+.page-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.page-actions label.button { cursor: pointer; }
+.fert-selected { margin-bottom: 10px; }
+.fert-chip { cursor: pointer; color: var(--blue); background: var(--blue-soft); border-color: transparent; }
+.fert-chip svg { margin-left: 2px; }
 .config-banner { display: block; margin-bottom: 16px; padding: 12px 14px; border-radius: 8px; line-height: 1.5; }
 .muted-cell { color: var(--muted) !important; font-size: 12px; }
 .muted-note { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11px; }
@@ -230,21 +236,13 @@ h1, h2, h3, strong { color: var(--ink); }
 .details-form select, .details-form textarea { width: 100%; min-height: 44px; padding: 0 13px; color: var(--ink); background: #fbfcfe; border: 1px solid #dce4ef; border-radius: 9px; outline: 0; font-size: 13px; }
 .details-form select { appearance: none; cursor: pointer; }
 .details-form textarea { min-height: 120px; padding-top: 11px; line-height: 1.55; resize: vertical; }
+.serial-lookup { display: flex; gap: 10px; }
+.serial-lookup input { flex: 1; min-width: 0; text-transform: uppercase; letter-spacing: .06em; }
+.serial-lookup .button { flex: none; }
+.selection-card .selection-summary + .selection-grid, .selection-card .selection-summary + .inline-alert { margin-top: clamp(16px, 2vw, 22px); }
+@media (max-width: 480px) { .serial-lookup { flex-direction: column; } }
 .details-form .field-optional { color: #8a96a8; font-size: var(--fs-eyebrow); font-weight: 650; }
 .modal-form textarea { min-height: 80px; padding-top: 11px; resize: vertical; }
-.input-with-prefix { display: flex; align-items: center; border: 1px solid #dce4ef; border-radius: 9px; background: #fbfcfe; }
-.input-with-prefix > span { flex: none; padding-left: 13px; color: var(--muted); font-size: var(--fs-label); }
-.input-with-prefix input { min-width: 0; flex: 1; border: 0; font-size: var(--fs-body); }
-.phone-field { position: relative; align-items: stretch; }
-.phone-field:focus-within { border-color: #89adf4; box-shadow: 0 0 0 3px rgba(47,111,237,.1); }
-.input-with-prefix > .phone-field-dial { position: relative; display: flex; flex: none; width: 12.5em; max-width: 46%; padding: 0; }
-.phone-field-dial > select { width: 100%; min-width: 0; height: 100%; padding: 0 26px 0 13px; appearance: none; color: var(--muted); background: transparent; border: 0; border-right: 1px solid #e6ecf5; border-radius: 0; outline: 0; font-size: var(--fs-label); font-weight: 700; text-overflow: ellipsis; cursor: pointer; }
-.phone-field-dial > select:disabled { cursor: not-allowed; opacity: .6; }
-.phone-field-chevron { position: absolute; right: 9px; top: 50%; margin-top: -7px; color: #94a0b2; pointer-events: none; }
-.phone-field input:disabled { cursor: not-allowed; opacity: .6; }
-@media (max-width: 560px) {
-.input-with-prefix > .phone-field-dial { width: 8.5em; }
-}
 .privacy-note { display: flex; align-items: flex-start; gap: 9px; padding: 12px 13px; color: #74839a; background: #f7f9fc; border-radius: 8px; font-size: var(--fs-meta); line-height: var(--lh-body); }
 .privacy-note svg { flex: none; color: var(--green); }
 .otp-card { display: grid; grid-template-columns: 76px minmax(0, 1fr) 168px; align-items: center; gap: clamp(16px, 2vw, 24px); }
@@ -401,6 +399,7 @@ h1, h2, h3, strong { color: var(--ink); }
 .master-context span:not(.master-count), .qr-overview span:not(.qr-security) { display: block; margin-top: 4px; color: #8292aa; font-size: 10px; }
 .master-count, .qr-security { margin-left: auto; color: var(--blue); font-size: 10px; font-weight: 750; }
 .qr-security { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.qr-security.sync-failed { color: #a83f49; }
 .qr-security svg { color: var(--green); }
 .master-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin: -12px 0 18px; padding: 5px; width: fit-content; max-width: 100%; background: #eaf0f8; border-radius: 9px; }
 .master-tab { display: inline-flex; align-items: center; min-height: 35px; padding: 0 13px; color: #8190a6; border-radius: 6px; font-size: 11px; font-weight: 700; white-space: nowrap; }

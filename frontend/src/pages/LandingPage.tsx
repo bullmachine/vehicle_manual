@@ -45,10 +45,10 @@ export function LandingPage() {
         </section>
         <section className="feature-grid" aria-label="Portal benefits">
           <div className="feature-card"><div className="feature-icon blue"><ScanLine size={21} /></div><div><h3>Scan and go</h3><p>Your QR label takes you directly to the correct vehicle configuration.</p></div></div>
-          <div className="feature-card"><div className="feature-icon amber"><Languages size={21} /></div><div><h3>Your language</h3><p>Choose from the languages configured for your vehicle and engine.</p></div></div>
+          <div className="feature-card"><div className="feature-icon amber"><Languages size={21} /></div><div><h3>Your language</h3><p>Choose from the languages available for your machine model.</p></div></div>
           <div className="feature-card"><div className="feature-icon green"><ShieldCheck size={21} /></div><div><h3>Read with confidence</h3><p>Manuals are delivered page by page through a protected viewer with your personal watermark.</p></div></div>
         </section>
-        <section className="how-it-works"><div><div className="eyebrow"><span className="eyebrow-line" /> HOW IT WORKS</div><h2>From machine to manual<br /><em>in three simple steps.</em></h2></div><div className="steps-row"><div className="step-item"><b>01</b><strong>Scan your QR</strong><span>Find the label on your vehicle.</span></div><div className="step-item"><b>02</b><strong>Confirm your details</strong><span>Select language and verify your mobile.</span></div><div className="step-item"><b>03</b><strong>Read your manual</strong><span>Open the latest approved version securely.</span></div></div></section>
+        <section className="how-it-works"><div><div className="eyebrow"><span className="eyebrow-line" /> HOW IT WORKS</div><h2>From machine to manual<br /><em>in three simple steps.</em></h2></div><div className="steps-row"><div className="step-item"><b>01</b><strong>Scan your QR</strong><span>Find the label on your vehicle.</span></div><div className="step-item"><b>02</b><strong>Confirm your details</strong><span>Enter your machine serial number and pick a language.</span></div><div className="step-item"><b>03</b><strong>Read your manual</strong><span>Open the latest approved version securely.</span></div></div></section>
       </main>
       <footer className="customer-footer shell-width"><BrandMark /><span>© {new Date().getFullYear()} BULL. Vehicle user manual portal.</span><span className="footer-links">Need help? Contact your dealer.</span></footer>
     </div>

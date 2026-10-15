@@ -61,7 +61,7 @@ class ManualVersionsTest extends TestCase
         $this->actingAsAdmin();
         $first = $this->publishedManual();
         $label = $first->versions()->firstOrFail()->version;
-        $second = $this->createManual(['version' => '1.0'])->assertCreated();
+        $second = $this->createManual(['version' => '0.9'])->assertCreated();
 
         $this->postJson('/api/admin/manuals/'.$second->json('data.id').'/versions', [
             'version' => $label,
@@ -146,11 +146,9 @@ class ManualVersionsTest extends TestCase
 
         $this->createManual([
             'title' => 'Second Document For Same Configuration',
-            'vehicle_variant_id' => $manual->vehicle_variant_id,
-            'engine_id' => $manual->engine_id,
             'language_id' => $manual->language_id,
             'manual_type_id' => $manual->manual_type_id,
-            'qr_type_ids' => $manual->qrTypes()->pluck('qr_types.id')->all(),
+            'fert_ids' => $manual->ferts()->pluck('ferts.id')->all(),
             'status' => 'published',
         ])->assertCreated();
 
@@ -281,12 +279,10 @@ class ManualVersionsTest extends TestCase
         $payload = array_merge([
             'title' => 'Imported Manual',
             'manual_type_id' => $manual->manual_type_id,
-            'vehicle_variant_id' => $manual->vehicle_variant_id,
-            'engine_id' => $manual->engine_id,
             'language_id' => $manual->language_id,
             'version' => '1.0',
             'status' => 'published',
-            'qr_type_ids' => $manual->qrTypes()->pluck('qr_types.id')->all(),
+            'fert_ids' => $manual->ferts()->pluck('ferts.id')->all(),
         ], $overrides);
 
         $payload['pdf'] = $overrides['pdf'] ?? $this->fakePdf();
@@ -309,16 +305,15 @@ class ManualVersionsTest extends TestCase
     private function customerSessionFor(Manual $manual): string
     {
         $token = 'manual-versions-'.Str::random(24);
-        $qrTypeId = $manual->qrTypes()->value('qr_types.id');
-        $qr = QrCode::query()->where('qr_type_id', $qrTypeId)->firstOrFail();
+        $qr = QrCode::query()->firstOrFail();
         $customer = Customer::query()->create(['name' => 'Version Tester', 'mobile' => '+919876543299']);
 
         CustomerSession::query()->create([
             'session_token_hash' => hash('sha256', $token),
             'customer_id' => $customer->id,
             'qr_code_id' => $qr->id,
-            'vehicle_variant_id' => $manual->vehicle_variant_id,
-            'engine_id' => $manual->engine_id,
+            'fert_id' => $manual->ferts()->value('ferts.id'),
+            'machine_serial_no' => 'TEST-MSNO',
             'language_id' => $manual->language_id,
             'expires_at' => now()->addHour(),
         ]);
@@ -330,9 +325,7 @@ class ManualVersionsTest extends TestCase
     {
         $count = 0;
         foreach ($manuals as $manual) {
-            if ($manual['vehicle'] === $reference->vehicleVariant?->name
-                && $manual['engine'] === $reference->engine?->name
-                && $manual['language'] === $reference->language?->name
+            if ($manual['language'] === $reference->language?->name
                 && $manual['type'] === $reference->manualType?->name) {
                 $count++;
             }

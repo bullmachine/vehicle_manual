@@ -36,7 +36,7 @@ class AdminDashboardController extends Controller
             ->limit(8)
             ->get();
 
-        $topManuals = Manual::query()->with(['manualType', 'vehicleVariant', 'engine', 'language'])
+        $topManuals = Manual::query()->with(['manualType', 'ferts:id,code,name', 'language'])
             ->withCount('accessLogs')
             ->orderByDesc('access_logs_count')
             ->limit(5)
@@ -44,7 +44,7 @@ class AdminDashboardController extends Controller
 
         return response()->json([
             'cards' => [
-                'total_vehicles' => \App\Models\VehicleVariant::query()->count(),
+                'total_machine_models' => \App\Models\Fert::query()->count(),
                 'active_qr_codes' => QrCode::query()->available()->count(),
                 'total_manuals' => Manual::query()->count(),
                 'published_manuals' => Manual::query()->published()->count(),
@@ -58,7 +58,7 @@ class AdminDashboardController extends Controller
                 'language_usage' => $languageUsage,
                 'top_manuals' => $topManuals,
             ],
-            'recent_activity' => QrScanLog::query()->with(['qrCode', 'vehicleVariant', 'engine', 'language'])->latest()->limit(10)->get(),
+            'recent_activity' => QrScanLog::query()->with(['qrCode', 'fert', 'language'])->latest()->limit(10)->get(),
         ]);
     }
 }

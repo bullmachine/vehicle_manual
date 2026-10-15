@@ -15,8 +15,8 @@ type ManualDetail = {
   id: number
   title: string
   type?: string
-  vehicle?: string
-  engine?: string
+  machine?: string
+  machine_serial_no?: string
   language?: string
   version: ManualVersion
 }
@@ -132,7 +132,7 @@ export function ManualViewerPage() {
   if (loading) return <div className="viewer-page"><LoadingState label="Preparing protected viewer…" /></div>
   if (error || !detail) return <div className="viewer-page"><div className="viewer-error"><ErrorState message={error || 'Manual not found.'} onRetry={() => navigate(-1)} /><button className="button button-ghost" onClick={() => navigate(-1)}><ArrowLeft size={17} /> Back to manuals</button></div></div>
 
-  const watermark = session ? `${session.customer.name} · ${session.customer.mobile} · ${session.id}` : 'Protected customer session'
+  const watermark = session ? [session.customer.name, session.customer.mobile, session.machine.serial_no ? `MSNO ${session.machine.serial_no}` : null, session.id].filter(Boolean).join(' · ') : 'Protected customer session'
   return <div className="viewer-page" onContextMenu={(event) => event.preventDefault()}>
     <header className="viewer-header"><button className="viewer-back" onClick={() => navigate(-1)}><ArrowLeft size={18} /><span>Manuals</span></button><div className="viewer-title"><strong>{detail.title}</strong><span>Version {detail.version.version} · {detail.language}</span></div><div className="viewer-actions"><span className="viewer-protected"><ShieldCheck size={15} /> Protected</span><button className="icon-button" onClick={openFullscreen} aria-label="Full screen"><Expand size={19} /></button></div></header>
     <main className="viewer-main"><div className="viewer-stage" style={{ '--viewer-zoom': zoom } as CSSProperties}><div className="page-shadow" /><canvas ref={canvasRef} className="manual-page-canvas" /><div className="watermark-layer" aria-hidden="true"><span>{watermark}</span></div>{(!pdfDoc || pageLoading) && <div className="page-loader"><LoaderCircle className="spin" size={30} /><span>Loading protected page…</span></div>}</div></main>

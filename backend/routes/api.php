@@ -4,6 +4,7 @@ use App\Http\Controllers\AdminAuditController;
 use App\Http\Controllers\AdminAuthController;
 use App\Http\Controllers\AdminDashboardController;
 use App\Http\Controllers\AdminEnquiryController;
+use App\Http\Controllers\AdminMachineController;
 use App\Http\Controllers\AdminManualController;
 use App\Http\Controllers\AdminMasterController;
 use App\Http\Controllers\AdminQrController;
@@ -17,12 +18,9 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('public')->group(function () {
     Route::get('qr/{token}', [PublicPortalController::class, 'qr'])->middleware('throttle:60,1');
-    Route::get('vehicle-variants', [PublicPortalController::class, 'vehicleVariants'])->middleware('throttle:60,1');
-    Route::get('engines', [PublicPortalController::class, 'engines'])->middleware('throttle:60,1');
     Route::get('languages', [PublicPortalController::class, 'languages'])->middleware('throttle:60,1');
-  Route::get('phone-countries', [PublicPortalController::class, 'phoneCountries'])->middleware('throttle:60,1');
-    Route::post('customer/request-otp', [PublicPortalController::class, 'requestOtp'])->middleware('throttle:10,1');
-    Route::post('customer/verify-otp', [PublicPortalController::class, 'verifyOtp'])->middleware('throttle:10,1');
+    Route::get('phone-countries', [PublicPortalController::class, 'phoneCountries'])->middleware('throttle:60,1');
+    Route::post('machine', [PublicPortalController::class, 'machine'])->middleware('throttle:20,1');
     Route::post('customer/session', [PublicPortalController::class, 'createSession'])->middleware('throttle:10,1');
     Route::post('support/enquiries', [PublicSupportController::class, 'store'])->middleware('throttle:5,1');
 });
@@ -55,10 +53,10 @@ Route::prefix('admin')->group(function () {
             Route::put($resource.'/{id}', [AdminMasterController::class, 'update'])->defaults('resource', $resource)->middleware('permission:masters.manage');
             Route::delete($resource.'/{id}', [AdminMasterController::class, 'destroy'])->defaults('resource', $resource)->middleware('permission:masters.manage');
         };
-        $masterRoutes('vehicles');
-        $masterRoutes('engines');
-        $masterRoutes('mappings');
-        $masterRoutes('vehicle-qr-types');
+        Route::post('ferts/import', [AdminMasterController::class, 'importFerts'])->middleware('permission:masters.manage');
+        Route::get('machines', [AdminMachineController::class, 'index'])->middleware('permission:masters.manage');
+        Route::post('machines/sync', [AdminMachineController::class, 'sync'])->middleware('permission:masters.manage');
+        $masterRoutes('ferts');
         $masterRoutes('languages');
         $masterRoutes('manual-types');
         $masterRoutes('qr-types');

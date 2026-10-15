@@ -2,13 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Models\Customer;
 use App\Models\Language;
-use App\Models\Manual;
 use App\Models\QrCode;
-use App\Models\Setting;
 use App\Models\User;
-use App\Models\VehicleEngineMapping;
-use App\Models\VehicleVariant;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
@@ -52,49 +49,56 @@ class ApiResponseContractTest extends TestCase
             ->assertJsonStructure(['message']);
     }
 
-    public function test_admin_can_turn_off_sms_otp_and_the_setting_persists(): void
+    public function test_admin_settings_persist_and_no_longer_include_otp(): void
     {
         $this->actingAsAdmin();
 
-        $this->putJson('/api/admin/settings', $this->settingsPayload(['otp_enabled' => false]))
+        $this->putJson('/api/admin/settings', ['manual_max_file_size' => 10485760, 'support_contact' => 'help@example.com'])
             ->assertOk()
-            ->assertJsonPath('data.otp_enabled', false);
+            ->assertJsonPath('data.manual_max_file_size', 10485760)
+            ->assertJsonPath('data.support_contact', 'help@example.com')
+            ->assertJsonMissingPath('data.otp_enabled');
 
-        $this->assertDatabaseHas('settings', ['key' => 'otp_enabled', 'value' => '0']);
-
-        $this->getJson('/api/admin/settings')
-            ->assertOk()
-            ->assertJsonPath('data.otp_enabled', false);
-
-        $this->putJson('/api/admin/settings', $this->settingsPayload(['otp_enabled' => true]))->assertOk();
-        $this->assertDatabaseHas('settings', ['key' => 'otp_enabled', 'value' => '1']);
+        $this->assertDatabaseHas('settings', ['key' => 'manual_max_file_size', 'value' => '10485760']);
     }
 
-    public function test_customer_session_can_be_created_without_otp_when_otp_is_disabled(): void
+    public function test_customer_session_is_created_from_machine_serial_number_with_mobile(): void
     {
-        $this->actingAsAdmin();
-        $this->putJson('/api/admin/settings', $this->settingsPayload(['otp_enabled' => false]))->assertOk();
-
         $response = $this->post('/api/public/customer/session', $this->customerPayload(), ['Accept' => 'application/json']);
 
         $response->assertOk()
             ->assertCookie('customer_session')
             ->assertJsonPath('data.customer.mobile', '+919876543210')
-            ->assertJsonStructure(['data' => ['id', 'customer' => ['name', 'mobile'], 'expires_at']]);
+            ->assertJsonPath('data.machine.serial_no', 'BS255')
+            ->assertJsonPath('data.machine.fert.code', '8000001')
+            ->assertJsonStructure(['data' => ['id', 'customer' => ['name', 'mobile'], 'machine' => ['serial_no', 'fert'], 'language', 'expires_at']]);
 
         $token = $response->getCookie('customer_session', false)->getValue();
-        $manuals = $this->withCredentials()->withUnencryptedCookie('customer_session', $token)
-            ->getJson('/api/customer/manuals');
-
-        $manuals->assertOk()->assertJsonCount(1);
-        $this->assertSame(0, \App\Models\OtpVerification::query()->count());
+        $this->withCredentials()->withUnencryptedCookie('customer_session', $token)
+            ->getJson('/api/customer/manuals')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.title', 'Bull Smart Backhoe Loader Operator Manual');
     }
 
-    public function test_direct_customer_session_is_rejected_while_otp_is_enabled(): void
+    public function test_customer_session_can_be_created_without_a_mobile_number(): void
     {
-        $this->post('/api/public/customer/session', $this->customerPayload(), ['Accept' => 'application/json'])
-            ->assertStatus(422)
-            ->assertJsonValidationErrors('otp');
+        $this->post('/api/public/customer/session', $this->customerPayload(['mobile' => null]), ['Accept' => 'application/json'])
+            ->assertOk()
+            ->assertCookie('customer_session')
+            ->assertJsonPath('data.customer.mobile', null)
+            ->assertJsonPath('data.customer.name', 'Serial Customer');
+
+        $this->post('/api/public/customer/session', $this->customerPayload(['mobile' => '']), ['Accept' => 'application/json'])
+            ->assertOk();
+
+        $this->assertSame(2, Customer::query()->whereNull('mobile')->count());
+    }
+
+    public function test_otp_endpoints_no_longer_exist(): void
+    {
+        $this->postJson('/api/public/customer/request-otp', $this->customerPayload())->assertNotFound();
+        $this->postJson('/api/public/customer/verify-otp', $this->customerPayload())->assertNotFound();
     }
 
     private function actingAsAdmin(): User
@@ -106,31 +110,16 @@ class ApiResponseContractTest extends TestCase
         return $admin;
     }
 
-    private function settingsPayload(array $overrides = []): array
-    {
-        return array_merge([
-            'otp_enabled' => true,
-            'otp_length' => 6,
-            'otp_expiry_minutes' => 5,
-            'otp_max_attempts' => 5,
-            'otp_resend_cooldown' => 30,
-            'manual_max_file_size' => 52428800,
-            'support_contact' => 'support@example.com',
-        ], $overrides);
-    }
-
-    private function customerPayload(): array
+    private function customerPayload(array $overrides = []): array
     {
         $qr = QrCode::query()->firstOrFail();
-        $vehicle = VehicleVariant::query()->whereHas('qrTypes', fn ($query) => $query->where('qr_types.id', $qr->qr_type_id))->firstOrFail();
 
-        return [
+        return array_merge([
             'qr_token' => app(\App\Services\PortalService::class)->qrToken($qr),
-            'name' => 'Otp Disabled Customer',
+            'machine_serial_no' => 'BS255',
+            'name' => 'Serial Customer',
             'mobile' => '9876543210',
-            'vehicle_variant_id' => $vehicle->id,
-            'engine_id' => VehicleEngineMapping::query()->where('vehicle_variant_id', $vehicle->id)->value('engine_id'),
             'language_id' => Language::query()->where('code', 'en')->value('id'),
-        ];
+        ], $overrides);
     }
 }
