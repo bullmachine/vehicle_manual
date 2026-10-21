@@ -231,12 +231,12 @@ class AdminManualController extends Controller
 
     private function validatePdf(UploadedFile $file): void
     {
-        $max = (int) Setting::value('manual_max_file_size', config('portal.manual_max_file_size', 52428800));
+        $max = (int) Setting::value('manual_max_file_size', config('portal.manual_max_file_size', 209715200));
         $validMime = in_array($file->getMimeType(), ['application/pdf', 'application/x-pdf'], true);
         $validExtension = strtolower($file->getClientOriginalExtension()) === 'pdf';
         $header = $file->getRealPath() ? file_get_contents($file->getRealPath(), false, null, 0, 5) : '';
         if (! $file->isValid() || ! $validMime || ! $validExtension || $header !== '%PDF-' || $file->getSize() > $max) {
-            throw ValidationException::withMessages(['pdf' => 'Upload a valid PDF file no larger than the configured limit.']);
+            throw ValidationException::withMessages(['pdf' => 'Upload a valid PDF file no larger than '.round($max / 1048576).' MB.']);
         }
     }
 
@@ -246,7 +246,10 @@ class AdminManualController extends Controller
             return 0;
         }
         try {
-            $image = new \Imagick($path);
+            // pingImage reads page metadata only; constructing Imagick with the path
+            // would rasterise every page and exhaust memory on large manuals.
+            $image = new \Imagick();
+            $image->pingImage($path);
             $count = $image->getNumberImages();
             $image->destroy();
             return $count;

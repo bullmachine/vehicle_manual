@@ -16,7 +16,7 @@ return [
         ))),
     ],
 
-    'manual_max_file_size' => (int) env('MANUAL_MAX_FILE_SIZE', 52428800),
+    'manual_max_file_size' => (int) env('MANUAL_MAX_FILE_SIZE', 209715200),
     'pdf_renderer' => env('PDF_RENDERER', 'imagick'),
     'pdf_renderer_required' => filter_var(env('PDF_RENDERER_REQUIRED', false), FILTER_VALIDATE_BOOLEAN),
     'frontend_url' => env('FRONTEND_URL', env('APP_URL', 'http://localhost:5173')),
