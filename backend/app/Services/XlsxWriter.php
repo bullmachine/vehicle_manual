@@ -20,7 +20,15 @@ class XlsxWriter
      */
     public function write(string $sheetName, array $headings, iterable $rows): string
     {
-        $path = tempnam(sys_get_temp_dir(), 'xlsx-');
+        // Not sys_get_temp_dir(): under IIS that is C:\Windows\Temp, which the
+        // app pool identity cannot write to, and tempnam()'s fallback notice
+        // becomes a 500.
+        $directory = storage_path('app/tmp');
+        if (! is_dir($directory) && ! @mkdir($directory, 0775, true) && ! is_dir($directory)) {
+            throw new RuntimeException('Could not create the Excel temp folder.');
+        }
+
+        $path = tempnam($directory, 'xlsx-');
         $zip = new ZipArchive();
 
         if ($path === false || $zip->open($path, ZipArchive::OVERWRITE) !== true) {
