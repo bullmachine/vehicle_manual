@@ -8,11 +8,14 @@ use App\Models\ManualType;
 use App\Models\QrType;
 use App\Services\AuditService;
 use App\Services\FertMaster;
+use App\Services\XlsxWriter;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class AdminMasterController extends Controller
 {
@@ -65,6 +68,40 @@ class AdminMasterController extends Controller
         $this->audit->record('imported', 'ferts', 'Fert', null, [], $result + ['file' => $request->file('file')->getClientOriginalName()]);
 
         return response()->json(['data' => $result]);
+    }
+
+    /**
+     * Download the FERT master as an Excel file, honouring the list's search and status filters.
+     */
+    public function exportFerts(Request $request, XlsxWriter $xlsx): BinaryFileResponse
+    {
+        $query = Fert::query()
+            ->withCount('manuals')
+            ->addSelect(['machines_count' => DB::table('machines')->selectRaw('count(*)')->whereColumn('machines.fert', 'ferts.code')]);
+        $search = trim((string) $request->input('q'));
+        if ($search !== '') {
+            $query->where(fn ($builder) => $builder->where('name', 'like', "%{$search}%")->orWhere('code', 'like', "%{$search}%"));
+        }
+        if ($request->filled('status')) {
+            $query->where('status', $request->string('status'));
+        }
+
+        $rows = $query->orderBy('code')->get()->map(fn (Fert $fert) => [
+            $fert->code,
+            $fert->name,
+            $fert->description,
+            ucfirst((string) $fert->status),
+            $fert->machines_count,
+            $fert->manuals_count,
+            $fert->updated_at?->format('d-m-Y H:i'),
+        ]);
+
+        $path = $xlsx->write('FERT master', ['FERT No', 'Name', 'Description', 'Status', 'Machines', 'Manuals mapped', 'Last updated'], $rows);
+        $this->audit->record('exported', 'ferts', 'Fert', null, [], ['rows' => $rows->count(), 'q' => $search ?: null, 'status' => $request->input('status')]);
+
+        return response()->download($path, 'fert-master-'.now()->format('Ymd-His').'.xlsx', [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ])->deleteFileAfterSend();
     }
 
     /**

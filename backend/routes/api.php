@@ -53,6 +53,7 @@ Route::prefix('admin')->group(function () {
             Route::put($resource.'/{id}', [AdminMasterController::class, 'update'])->defaults('resource', $resource)->middleware('permission:masters.manage');
             Route::delete($resource.'/{id}', [AdminMasterController::class, 'destroy'])->defaults('resource', $resource)->middleware('permission:masters.manage');
         };
+        Route::get('ferts/export', [AdminMasterController::class, 'exportFerts'])->middleware('permission:masters.manage');
         Route::post('ferts/import', [AdminMasterController::class, 'importFerts'])->middleware('permission:masters.manage');
         Route::get('machines', [AdminMachineController::class, 'index'])->middleware('permission:masters.manage');
         Route::post('machines/sync', [AdminMachineController::class, 'sync'])->middleware('permission:masters.manage');
