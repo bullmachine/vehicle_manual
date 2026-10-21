@@ -4,6 +4,7 @@ use App\Services\MachineSync;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schedule;
 
 Artisan::command('inspire', function () {
@@ -17,7 +18,10 @@ Artisan::command('machines:sync
     {--chunk=31 : Days per SAP request}
     {--file= : Load a JSON file in the SAP response format instead of calling SAP}', function (MachineSync $sync) {
     $report = function (string $label, array $result): void {
-        $this->info("{$label}: {$result['received']} received, {$result['created']} new, {$result['updated']} updated, {$result['skipped']} skipped, {$result['ferts_added']} new FERTs.");
+        $line = "{$label}: {$result['received']} received, {$result['created']} new, {$result['updated']} updated, {$result['skipped']} skipped, {$result['ferts_added']} new FERTs.";
+        $this->info($line);
+        // Also logged so runs from Windows Task Scheduler, which has no console, leave a record.
+        Log::info("machines:sync {$line}");
     };
 
     try {
@@ -41,6 +45,7 @@ Artisan::command('machines:sync
         $sync->syncPlants($plants, $from, $to, (int) $this->option('chunk'), 'command', fn (string $plant, array $result) => $report("Plant {$plant} {$from->format('Ymd')}-{$to->format('Ymd')}", $result));
     } catch (\Throwable $exception) {
         $this->error($exception->getMessage());
+        Log::error('machines:sync failed: '.$exception->getMessage());
 
         return 1;
     }
@@ -48,5 +53,7 @@ Artisan::command('machines:sync
     return 0;
 })->purpose('Sync machine serial numbers and FERTs from the SAP machine API');
 
-// Pull recently invoiced machines from SAP every night. Requires the Laravel scheduler (`php artisan schedule:work` or a cron/Task Scheduler entry for `schedule:run`).
-Schedule::command('machines:sync')->dailyAt('01:30')->withoutOverlapping();
+// Pull recently invoiced machines (last SAP_MACHINE_SYNC_DAYS days) from SAP every Monday and Thursday.
+// On the server this is run by the Windows task "Vehicle Manual - SAP machine sync" calling
+// `php artisan machines:sync` directly, so `schedule:run` must not also be scheduled there or it would sync twice.
+Schedule::command('machines:sync')->days([1, 4])->at('07:30')->timezone('Asia/Kolkata')->withoutOverlapping();
