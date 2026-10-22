@@ -9,6 +9,7 @@ import type { AdminUser } from './lib/types'
 const AdminAuditPage = lazy(() => import('./pages/AdminAuditPage').then(({ AdminAuditPage }) => ({ default: AdminAuditPage })))
 const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage').then(({ AdminDashboardPage }) => ({ default: AdminDashboardPage })))
 const AdminEnquiryPage = lazy(() => import('./pages/AdminEnquiryPage').then(({ AdminEnquiryPage }) => ({ default: AdminEnquiryPage })))
+const AdminHelpPage = lazy(() => import('./pages/AdminHelpPage').then(({ AdminHelpPage }) => ({ default: AdminHelpPage })))
 const AdminLoginPage = lazy(() => import('./pages/AdminLoginPage').then(({ AdminLoginPage }) => ({ default: AdminLoginPage })))
 const AdminMachinesPage = lazy(() => import('./pages/AdminMachinesPage').then(({ AdminMachinesPage }) => ({ default: AdminMachinesPage })))
 const AdminManualsPage = lazy(() => import('./pages/AdminManualsPage').then(({ AdminManualsPage }) => ({ default: AdminManualsPage })))
@@ -72,7 +73,8 @@ function App() {
               <Route path="reports" element={<AdminReportsPage />} />
               <Route path="settings" element={<AdminSettingsPage />} />
               <Route path="audit" element={<AdminAuditPage />} />
-        <Route path="enquiries" element={<AdminEnquiryPage />} />
+              <Route path="enquiries" element={<AdminEnquiryPage />} />
+              <Route path="help" element={<AdminHelpPage />} />
             </Route>
           </Route>
           <Route path="*" element={<NotFoundPage />} />

@@ -1,4 +1,4 @@
-import { BarChart3, BookOpen, ChevronDown, ClipboardList, Cpu, LayoutDashboard, LogOut, Menu, MessageSquare, QrCode, Settings, ShieldCheck, X } from 'lucide-react'
+import { BarChart3, BookOpen, ChevronDown, CircleHelp, ClipboardList, Cpu, LayoutDashboard, LogOut, Menu, MessageSquare, QrCode, Settings, ShieldCheck, X } from 'lucide-react'
 import { useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { apiFetch, clearAdminToken, runtimeConfigDiagnostic } from '../lib/api'
@@ -14,6 +14,7 @@ const navigation = [
   { to: '/admin/enquiries', label: 'Support requests', icon: MessageSquare },
   { to: '/admin/settings', label: 'Settings', icon: Settings },
   { to: '/admin/audit', label: 'Audit logs', icon: ShieldCheck },
+  { to: '/admin/help', label: 'Help', icon: CircleHelp },
 ]
 
 export function AdminLayout() {
@@ -82,5 +83,6 @@ function getPageName(path: string): string {
   if (path.includes('enquiries')) return 'Support requests'
   if (path.includes('settings')) return 'Settings'
   if (path.includes('audit')) return 'Audit logs'
+  if (path.includes('help')) return 'Help'
   return 'Dashboard'
 }

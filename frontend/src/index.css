@@ -936,3 +936,32 @@ h1, h2, h3, strong { color: var(--ink); }
 @media (max-width: 360px) {
   .portal-page .step-indicator { gap: 6px; }
 }
+
+/* Admin help guide */
+.help-layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); align-items: start; gap: 18px; }
+.help-toc { position: sticky; top: 16px; display: grid; gap: 2px; padding: 8px; background: #fff; border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow-sm); }
+.help-toc a { display: flex; align-items: center; gap: 8px; padding: 8px 10px; color: #61718a; border-radius: 7px; font-size: 11px; font-weight: 700; line-height: 1.35; }
+.help-toc a svg { flex: none; color: var(--blue); }
+.help-toc a:hover { color: var(--navy); background: var(--blue-soft); }
+.help-sections { display: grid; gap: 17px; min-width: 0; }
+.help-card { scroll-margin-top: 16px; }
+.help-card .settings-panel-heading p { font-size: 12px; line-height: 1.6; }
+.help-steps { display: grid; gap: 9px; margin: 0 0 16px; padding-left: 20px; color: #4f5f77; font-size: 12px; line-height: 1.6; }
+.help-steps li::marker { color: var(--blue); font-weight: 800; }
+.help-points { display: grid; gap: 1px; margin: 0 0 16px; overflow: hidden; background: var(--line); border: 1px solid var(--line); border-radius: 9px; }
+.help-points > div { display: grid; grid-template-columns: minmax(150px, 30%) minmax(0, 1fr); gap: 14px; padding: 11px 14px; background: #fbfcff; }
+.help-points dt { color: var(--navy); font-size: 11px; font-weight: 800; line-height: 1.5; }
+.help-points dd { margin: 0; color: #5f6f87; font-size: 12px; line-height: 1.55; }
+.help-tips { margin-bottom: 16px; }
+.help-tips div { gap: 7px; }
+.help-link { display: inline-flex; align-items: center; gap: 6px; }
+.help-empty { display: grid; gap: 6px; padding: 28px; text-align: center; color: var(--muted); font-size: 12px; }
+@media (max-width: 900px) {
+  .help-layout { grid-template-columns: minmax(0, 1fr); }
+  .help-toc { position: static; display: flex; flex-wrap: wrap; gap: 4px; }
+  .help-toc a { padding: 6px 9px; background: #f7f9fc; }
+}
+@media (max-width: 560px) {
+  .help-points > div { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .help-card.settings-panel { padding: 18px; }
+}
