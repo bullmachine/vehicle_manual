@@ -76,12 +76,14 @@ const sections: HelpSection[] = [
     steps: [
       'Open Master data → FERT (machine models).',
       'New FERTs are created automatically when a machine with an unknown FERT is synced from SAP. Their name is taken from the SAP description.',
-      'To add many FERTs at once, click Import JSON / CSV. A CSV needs a header row with FERT and DESCRIPTION columns.',
+      'Set which QR codes each FERT works with: edit the FERT and tick its QR types (Domestic, Export, Export (Non-BULL)). A machine then opens only from a QR code of those types.',
+      'To add or map many FERTs at once, click Import JSON / CSV. A CSV needs FERT and DESCRIPTION columns, and can have a QR_TYPE column such as domestic, domestic;export or all.',
       'Click Export Excel to download the FERT list, for example to plan which manuals each model needs.',
       'Use the edit button to correct a name, or set a FERT to Inactive to hide its manuals from customers.',
     ],
     tips: [
       'Do not delete a FERT that machines still use. Set it to Inactive instead.',
+      'A FERT with no QR type ticked opens from every QR code. Use the QR type filter → “Not mapped to a QR type” to find the FERTs still to map. New FERTs from the SAP sync start unmapped.',
     ],
   },
   {
@@ -186,6 +188,7 @@ const sections: HelpSection[] = [
       { term: '“Manuals for this machine are not available yet”', text: 'The machine’s FERT is set to Inactive in the FERT master, or the machine has no FERT in SAP.' },
       { term: '“No manuals have been published for this machine yet”', text: 'No published manual is mapped to the machine’s FERT. Map one in Manuals → Map FERTs.' },
       { term: '“Manual not available” after choosing a language', text: 'There is no published manual in that language for this FERT. Upload one, or ask the customer to choose another language.' },
+      { term: '“This machine is not available on this QR code”', text: 'The customer scanned a QR code of a type (for example Export) that the machine’s FERT is not mapped to. Check the label on the machine, or correct the FERT’s QR types in the FERT master.' },
       { term: '“QR code not found”', text: 'The code was deactivated, expired or regenerated. Check it in QR management.' },
       { term: 'Mobile number rejected', text: 'Numbers outside India must start with + and the country code, for example +971 50 123 4567. The mobile number is optional, so the customer can also leave it empty.' },
     ],

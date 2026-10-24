@@ -49,8 +49,8 @@ class PublicPortalController extends Controller
             'qr_token' => ['required', 'string', 'min:32'],
             'machine_serial_no' => ['required', 'string', 'max:60'],
         ]);
-        $this->portal->findQr($validated['qr_token']);
-        ['machine' => $machine, 'fert' => $fert] = $this->portal->lookupMachine($validated['machine_serial_no']);
+        $qr = $this->portal->findQr($validated['qr_token']);
+        ['machine' => $machine, 'fert' => $fert] = $this->portal->lookupMachine($validated['machine_serial_no'], $qr);
 
         return response()->json(['data' => [
             'machine' => $this->portal->machineData($machine, $fert),
@@ -68,7 +68,7 @@ class PublicPortalController extends Controller
             'mobile' => ['nullable', 'string', 'max:20'],
         ]);
         $qr = $this->portal->findQr($validated['qr_token']);
-        ['machine' => $machine, 'fert' => $fert] = $this->portal->lookupMachine($validated['machine_serial_no']);
+        ['machine' => $machine, 'fert' => $fert] = $this->portal->lookupMachine($validated['machine_serial_no'], $qr);
         $language = $this->portal->resolveLanguage($validated['language_id']);
         $mobile = filled($validated['mobile'] ?? null) ? $this->phones->normalize($validated['mobile']) : null;
         $session = $this->portal->createSession($qr, $machine, $fert, $language, trim($validated['name']), $mobile, $request);

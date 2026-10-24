@@ -54,11 +54,12 @@ class PortalService
     }
 
     /**
-     * Resolve a machine serial number to its machine record and FERT master.
+     * Resolve a machine serial number to its machine record and FERT master, and check
+     * the machine may be opened from the scanned QR code's type (Domestic, Export, ...).
      *
      * @return array{machine: array, fert: Fert}
      */
-    public function lookupMachine(string $serialNo): array
+    public function lookupMachine(string $serialNo, QrCode $qr): array
     {
         $machine = $this->machines->find($this->normalizeSerialNo($serialNo));
 
@@ -71,6 +72,10 @@ class PortalService
 
         if (! $fert || $fert->status !== 'active') {
             throw ValidationException::withMessages(['machine_serial_no' => 'Manuals for this machine are not available yet. Please contact support.']);
+        }
+
+        if (! $fert->allowsQrType($qr->qr_type_id)) {
+            throw ValidationException::withMessages(['machine_serial_no' => 'This machine is not available on this QR code. Please scan the QR label on your machine or contact support.']);
         }
 
         return ['machine' => $machine, 'fert' => $fert];

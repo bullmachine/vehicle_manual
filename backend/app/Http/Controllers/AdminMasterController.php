@@ -12,6 +12,7 @@ use App\Services\XlsxWriter;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -33,6 +34,14 @@ class AdminMasterController extends Controller
         if ($request->filled('status')) {
             $query->where('status', $request->string('status'));
         }
+        if ($resource === 'ferts') {
+            $query->with('qrTypes:id,code,name');
+            if ($request->input('qr_type_id') === 'none') {
+                $query->doesntHave('qrTypes');
+            } elseif ($request->filled('qr_type_id')) {
+                $query->whereHas('qrTypes', fn ($builder) => $builder->whereKey($request->integer('qr_type_id')));
+            }
+        }
 
         $query->orderBy('display_order')->orderByDesc('id');
 
@@ -43,10 +52,11 @@ class AdminMasterController extends Controller
     {
         $model = $this->model($resource);
         $validated = $request->validate($this->rules($resource));
-        $record = $model::create($validated);
+        $record = $model::create(Arr::except($validated, ['qr_type_ids']));
+        $this->syncQrTypes($record, $validated);
         $this->audit->record('created', $resource, class_basename($model), $record->id, [], $validated);
 
-        return response()->json(['data' => $record->fresh()], 201);
+        return response()->json(['data' => $record->fresh($this->relations($resource))], 201);
     }
 
     public function update(int|string $id, string $resource, Request $request): JsonResponse
@@ -55,16 +65,35 @@ class AdminMasterController extends Controller
         $record = $model::findOrFail($id);
         $validated = $request->validate($this->rules($resource, $record->id));
         $old = $record->getAttributes();
-        $record->update($validated);
+        if ($record instanceof Fert && array_key_exists('qr_type_ids', $validated)) {
+            $old['qr_type_ids'] = $record->qrTypes()->pluck('qr_types.id')->all();
+        }
+        $record->update(Arr::except($validated, ['qr_type_ids']));
+        $this->syncQrTypes($record, $validated);
         $this->audit->record('updated', $resource, class_basename($model), $record->id, $old, $validated);
 
-        return response()->json(['data' => $record->fresh()]);
+        return response()->json(['data' => $record->fresh($this->relations($resource))]);
+    }
+
+    /**
+     * Map a FERT to the QR types its machines may be opened from; an empty list opens it to every QR type.
+     */
+    private function syncQrTypes(Model $record, array $validated): void
+    {
+        if ($record instanceof Fert && array_key_exists('qr_type_ids', $validated)) {
+            $record->qrTypes()->sync($validated['qr_type_ids'] ?? []);
+        }
+    }
+
+    private function relations(string $resource): array
+    {
+        return $resource === 'ferts' ? ['qrTypes:id,code,name'] : [];
     }
 
     public function importFerts(Request $request, FertMaster $ferts): JsonResponse
     {
         $request->validate(['file' => ['required', 'file', 'max:5120', 'mimes:json,csv,txt']]);
-        $result = $ferts->import($request->file('file'));
+        $result = DB::transaction(fn () => $ferts->import($request->file('file')));
         $this->audit->record('imported', 'ferts', 'Fert', null, [], $result + ['file' => $request->file('file')->getClientOriginalName()]);
 
         return response()->json(['data' => $result]);
@@ -76,6 +105,7 @@ class AdminMasterController extends Controller
     public function exportFerts(Request $request, XlsxWriter $xlsx): BinaryFileResponse
     {
         $query = Fert::query()
+            ->with('qrTypes:id,name')
             ->withCount('manuals')
             ->addSelect(['machines_count' => DB::table('machines')->selectRaw('count(*)')->whereColumn('machines.fert', 'ferts.code')]);
         $search = trim((string) $request->input('q'));
@@ -91,12 +121,13 @@ class AdminMasterController extends Controller
             $fert->name,
             $fert->description,
             ucfirst((string) $fert->status),
+            $fert->qrTypes->pluck('name')->implode(', ') ?: 'All QR types',
             $fert->machines_count,
             $fert->manuals_count,
             $fert->updated_at?->format('d-m-Y H:i'),
         ]);
 
-        $path = $xlsx->write('FERT master', ['FERT No', 'Name', 'Description', 'Status', 'Machines', 'Manuals mapped', 'Last updated'], $rows);
+        $path = $xlsx->write('FERT master', ['FERT No', 'Name', 'Description', 'Status', 'QR types', 'Machines', 'Manuals mapped', 'Last updated'], $rows);
         $this->audit->record('exported', 'ferts', 'Fert', null, [], ['rows' => $rows->count(), 'q' => $search ?: null, 'status' => $request->input('status')]);
 
         return response()->download($path, 'fert-master-'.now()->format('Ymd-His').'.xlsx', [
@@ -161,6 +192,8 @@ class AdminMasterController extends Controller
                 'description' => ['nullable', 'string', 'max:2000'],
                 'status' => ['required', 'in:active,inactive'],
                 'display_order' => ['nullable', 'integer', 'min:0'],
+                'qr_type_ids' => ['sometimes', 'nullable', 'array'],
+                'qr_type_ids.*' => ['integer', 'distinct', 'exists:qr_types,id'],
             ],
             'languages' => [
                 'code' => ['required', 'string', 'max:10', $unique('languages', 'code')],

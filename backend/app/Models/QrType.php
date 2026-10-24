@@ -18,6 +18,11 @@ class QrType extends Model
         return $this->hasMany(QrCode::class);
     }
 
+    public function ferts(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(Fert::class, 'fert_qr_type');
+    }
+
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('status', 'active');

@@ -965,3 +965,7 @@ h1, h2, h3, strong { color: var(--ink); }
   .help-points > div { grid-template-columns: minmax(0, 1fr); gap: 4px; }
   .help-card.settings-panel { padding: 18px; }
 }
+
+/* FERT master: QR type tags */
+.qr-type-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.qr-type-tag { display: inline-flex; align-items: center; min-height: 22px; padding: 0 8px; color: var(--blue-dark); background: var(--blue-soft); border-radius: 999px; font-size: 10px; font-weight: 750; white-space: nowrap; }

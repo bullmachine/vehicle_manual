@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Fert;
+use App\Models\QrType;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Validation\ValidationException;
 
@@ -26,8 +27,10 @@ class FertMaster
 
     /**
      * Import FERTs from a JSON array or a CSV file with a header row. Each row needs a
-     * FERT (or code) column; DESCRIPTION (or name) is optional. The machine API JSON
-     * itself can be imported, since it carries both columns.
+     * FERT (or code) column; DESCRIPTION (or name) is optional. An optional QR_TYPE column
+     * maps the FERT to QR types by code or name, several separated by ";" or "|"
+     * (e.g. "domestic;export"); "all" clears the mapping, an empty cell leaves it unchanged.
+     * The machine API JSON itself can be imported, since it carries FERT and DESCRIPTION.
      *
      * @return array{created: int, updated: int, skipped: int, total: int}
      */
@@ -36,6 +39,7 @@ class FertMaster
         $rows = $this->rows($file);
         $created = $updated = $skipped = 0;
         $seen = [];
+        $qrTypes = QrType::query()->get(['id', 'code', 'name']);
 
         foreach ($rows as $row) {
             $row = array_change_key_case(array_map(fn ($value) => is_scalar($value) ? trim((string) $value) : '', $row), CASE_LOWER);
@@ -48,19 +52,61 @@ class FertMaster
             }
             $seen[$code] = true;
 
+            $qrTypeIds = $this->qrTypeIds($row['qr_type'] ?? $row['qr_types'] ?? '', $qrTypes);
+
             $fert = Fert::query()->where('code', $code)->first();
             if (! $fert) {
-                Fert::query()->create(['code' => $code, 'name' => $name !== '' ? mb_substr($name, 0, 160) : 'FERT '.$code, 'status' => 'active']);
+                $fert = Fert::query()->create(['code' => $code, 'name' => $name !== '' ? mb_substr($name, 0, 160) : 'FERT '.$code, 'status' => 'active']);
+                if ($qrTypeIds !== null) {
+                    $fert->qrTypes()->sync($qrTypeIds);
+                }
                 $created++;
-            } elseif ($name !== '' && $fert->name !== $name) {
-                $fert->update(['name' => mb_substr($name, 0, 160)]);
-                $updated++;
-            } else {
-                $skipped++;
+
+                continue;
             }
+
+            $changed = false;
+            if ($name !== '' && $fert->name !== $name) {
+                $fert->update(['name' => mb_substr($name, 0, 160)]);
+                $changed = true;
+            }
+            if ($qrTypeIds !== null) {
+                $sync = $fert->qrTypes()->sync($qrTypeIds);
+                $changed = $changed || $sync['attached'] !== [] || $sync['detached'] !== [];
+            }
+            $changed ? $updated++ : $skipped++;
         }
 
         return ['created' => $created, 'updated' => $updated, 'skipped' => $skipped, 'total' => count($rows)];
+    }
+
+    /**
+     * QR type ids for an import cell, or null when the cell is empty (leave the mapping as it is).
+     *
+     * @param  \Illuminate\Support\Collection<int, QrType>  $qrTypes
+     * @return array<int, int>|null
+     */
+    private function qrTypeIds(string $cell, $qrTypes): ?array
+    {
+        $values = array_values(array_filter(array_map(fn ($value) => strtolower(trim($value)), preg_split('/[;|]/', $cell) ?: [])));
+
+        if ($values === []) {
+            return null;
+        }
+        if ($values === ['all']) {
+            return [];
+        }
+
+        $ids = [];
+        foreach ($values as $value) {
+            $match = $qrTypes->first(fn (QrType $type) => strtolower($type->code) === $value || strtolower($type->name) === $value);
+            if (! $match) {
+                throw ValidationException::withMessages(['file' => "Unknown QR type \"{$value}\". Use one of: ".$qrTypes->pluck('code')->implode(', ').', or all.']);
+            }
+            $ids[] = $match->id;
+        }
+
+        return array_values(array_unique($ids));
     }
 
     /**
