@@ -36,6 +36,7 @@ export function ManualViewerPage() {
   const [feedback, setFeedback] = useState('')
   const [feedbackSent, setFeedbackSent] = useState(false)
   const [pdfDoc, setPdfDoc] = useState<pdfjsLib.PDFDocumentProxy | null>(null)
+  const [shielded, setShielded] = useState(false)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
 
   const versionId = params.get('version') ?? ''
@@ -109,6 +110,41 @@ export function ManualViewerPage() {
     return () => { document.removeEventListener('contextmenu', prevent); document.removeEventListener('dragstart', prevent); document.removeEventListener('keydown', onKey) }
   }, [pageCount])
 
+  // Deterrent only: a browser cannot stop OS screenshots, so hide the page whenever focus leaves
+  // the viewer (Snipping Tool, app switcher, tab change) and wipe the clipboard after PrintScreen.
+  useEffect(() => {
+    let timer = 0
+    const hide = () => { window.clearTimeout(timer); setShielded(true) }
+    const show = () => { window.clearTimeout(timer); timer = window.setTimeout(() => setShielded(false), 300) }
+    const onVisibility = () => (document.hidden ? hide() : show())
+    const onPrintScreen = (event: KeyboardEvent) => {
+      if (event.key !== 'PrintScreen') return
+      hide()
+      void navigator.clipboard?.writeText('Screenshots of BULL manuals are not permitted.').catch(() => undefined)
+      timer = window.setTimeout(() => setShielded(false), 1500)
+    }
+    const onShortcut = (event: KeyboardEvent) => {
+      if (event.key === 'PrintScreen' || (event.shiftKey && (event.metaKey || event.ctrlKey) && ['s', '3', '4', '5'].includes(event.key.toLowerCase()))) hide()
+    }
+    window.addEventListener('blur', hide)
+    window.addEventListener('focus', show)
+    window.addEventListener('beforeprint', hide)
+    window.addEventListener('afterprint', show)
+    document.addEventListener('visibilitychange', onVisibility)
+    document.addEventListener('keydown', onShortcut)
+    document.addEventListener('keyup', onPrintScreen)
+    return () => {
+      window.clearTimeout(timer)
+      window.removeEventListener('blur', hide)
+      window.removeEventListener('focus', show)
+      window.removeEventListener('beforeprint', hide)
+      window.removeEventListener('afterprint', show)
+      document.removeEventListener('visibilitychange', onVisibility)
+      document.removeEventListener('keydown', onShortcut)
+      document.removeEventListener('keyup', onPrintScreen)
+    }
+  }, [])
+
   async function openFullscreen() {
     const element = document.documentElement
     if (!document.fullscreenElement) await element.requestFullscreen()
@@ -133,9 +169,9 @@ export function ManualViewerPage() {
   if (error || !detail) return <div className="viewer-page"><div className="viewer-error"><ErrorState message={error || 'Manual not found.'} onRetry={() => navigate(-1)} /><button className="button button-ghost" onClick={() => navigate(-1)}><ArrowLeft size={17} /> Back to manuals</button></div></div>
 
   const watermark = session ? [session.customer.name, session.customer.mobile, session.machine.serial_no ? `MSNO ${session.machine.serial_no}` : null, session.id].filter(Boolean).join(' · ') : 'Protected customer session'
-  return <div className="viewer-page" onContextMenu={(event) => event.preventDefault()}>
+  return <div className={`viewer-page${shielded ? ' is-shielded' : ''}`} onContextMenu={(event) => event.preventDefault()}>
     <header className="viewer-header"><button className="viewer-back" onClick={() => navigate(-1)}><ArrowLeft size={18} /><span>Manuals</span></button><div className="viewer-title"><strong>{detail.title}</strong><span>Version {detail.version.version} · {detail.language}</span></div><div className="viewer-actions"><span className="viewer-protected"><ShieldCheck size={15} /> Protected</span><button className="icon-button" onClick={openFullscreen} aria-label="Full screen"><Expand size={19} /></button></div></header>
-    <main className="viewer-main"><div className="viewer-stage" style={{ '--viewer-zoom': zoom } as CSSProperties}><div className="page-shadow" /><canvas ref={canvasRef} className="manual-page-canvas" /><div className="watermark-layer" aria-hidden="true"><span>{watermark}</span></div>{(!pdfDoc || pageLoading) && <div className="page-loader"><LoaderCircle className="spin" size={30} /><span>Loading protected page…</span></div>}</div></main>
+    <main className="viewer-main"><div className="viewer-stage" style={{ '--viewer-zoom': zoom } as CSSProperties}><div className="page-shadow" /><canvas ref={canvasRef} className="manual-page-canvas" /><div className="watermark-layer" aria-hidden="true"><span>{watermark}</span></div>{(!pdfDoc || pageLoading) && <div className="page-loader"><LoaderCircle className="spin" size={30} /><span>Loading protected page…</span></div>}{shielded && <div className="viewer-shield"><ShieldCheck size={30} /><strong>Manual hidden</strong><span>Return to this window to continue reading.</span></div>}</div></main>
     <footer className="viewer-controls"><div className="zoom-controls"><button className="icon-button" onClick={() => setZoom((value) => Math.max(0.7, Number((value - 0.1).toFixed(1))))} aria-label="Zoom out"><Minus size={19} /></button><span>{Math.round(zoom * 100)}%</span><button className="icon-button" onClick={() => setZoom((value) => Math.min(1.8, Number((value + 0.1).toFixed(1))))} aria-label="Zoom in"><Plus size={19} /></button></div><div className="page-controls"><button className="icon-button" disabled={page <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))} aria-label="Previous page"><ChevronLeft size={21} /></button><span><strong>{page}</strong> / {pageCount}</span><button className="icon-button" disabled={page >= pageCount} onClick={() => setPage((value) => Math.min(pageCount, value + 1))} aria-label="Next page"><ChevronRight size={21} /></button></div><div className="viewer-security-note"><ShieldCheck size={15} /> Watermarked for you</div></footer>
     <section className="viewer-feedback"><div><strong>Was this manual helpful?</strong><span>Your feedback helps us improve the operator experience.</span></div>{feedbackSent ? <span className="feedback-thanks"><ShieldCheck size={16} /> Thank you</span> : <div className="feedback-actions"><button className={feedback === 'yes' ? 'selected' : ''} onClick={() => void sendFeedback('yes')}>Yes, helpful</button><button className={feedback === 'no' ? 'selected' : ''} onClick={() => void sendFeedback('no')}>Not quite</button>{feedback && <button className="feedback-submit" onClick={() => void submitFeedback()}>Send feedback</button>}<button className="feedback-close" onClick={() => setFeedback('')} aria-label="Close feedback"><X size={15} /></button></div>}</section>
   </div>

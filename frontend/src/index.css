@@ -526,6 +526,10 @@ h1, h2, h3, strong { color: var(--ink); }
 .manual-page-canvas { position: relative; z-index: 1; max-width: min(610px, 76vw); max-height: 84vh; background: #fff; box-shadow: 0 18px 45px rgba(0,0,0,.4); user-select: none; -webkit-user-drag: none; }
 .watermark-layer { position: absolute; z-index: 2; inset: 0; display: grid; place-items: center; overflow: hidden; pointer-events: none; }
 .watermark-layer span { color: rgba(29, 72, 129, .18); font-size: 13px; font-weight: 800; letter-spacing: .06em; white-space: nowrap; }
+.viewer-page.is-shielded .manual-page-canvas { visibility: hidden; }
+.viewer-shield { position: absolute; z-index: 4; inset: 0; display: grid; place-content: center; justify-items: center; gap: 8px; padding: 20px; text-align: center; background: #0f1c33; color: #fff; }
+.viewer-shield span { color: #b8c4d6; font-size: 13px; }
+@media print { body:has(.viewer-page) * { visibility: hidden !important; } body:has(.viewer-page)::after { content: 'Printing BULL manuals is not permitted.'; visibility: visible; position: fixed; inset: 40px 0 auto; text-align: center; font: 700 18px sans-serif; color: #000; } }
 .page-loader { position: absolute; z-index: 3; display: grid; justify-items: center; gap: 8px; color: #5c6e88; font-size: 11px; }
 .viewer-controls { min-height: 67px; display: flex; align-items: center; justify-content: center; gap: 45px; color: #a4b4ca; background: #14243e; border-top: 1px solid rgba(255,255,255,.08); }
 .zoom-controls, .page-controls { display: flex; align-items: center; gap: 8px; font-size: 10px; }
